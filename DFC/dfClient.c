@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <openssl/md5.h>
 
 #define FILEPACKETSIZE 5*1024	
 
@@ -32,9 +33,9 @@ struct packet
 
 
 //This function parses the dfc.conf to find the configurations.
-void getDefaultFileName(char *dfs1, char *dfs2, char *dfs3, char *dfs4, char *user, char *pwd) {
+void getDefaultFileName(char *filename, char *dfs1, char *dfs2, char *dfs3, char *dfs4, char *user, char *pwd) {
 	FILE *file;
-	file = fopen("./dfc.conf", "r");
+	file = fopen(filename, "r");
 	char data[1048576];
 	bzero(data, sizeof(data));
 	int i = 0;
@@ -84,13 +85,60 @@ void getDefaultFileName(char *dfs1, char *dfs2, char *dfs3, char *dfs4, char *us
     	printf("File Open Failed for *dfc.conf*\n");
     }
 
- //    printf("**dfs1:%s:\n", dfs1);
+    // printf("**dfs1:%s:\n", dfs1);
 	// printf("**dfs2:%s:\n", dfs2);
 	// printf("**dfs3:%s:\n", dfs3);
 	// printf("**dfs4:%s:\n", dfs4);
 	// printf("**username:%s:\n", user);
 	// printf("**password:%s:\n", pwd);
     fclose(file); 
+}
+
+//Gives the size of the file in bytes.
+size_t getFileSize(FILE *file) {
+	fseek(file, 0, SEEK_END);
+  	size_t file_size = ftell(file);
+  	return file_size;
+}
+
+long int getMd5Sum(char *fileName) {
+	FILE *file;
+	char fileBuffer[1048576];
+	file = fopen(fileName, "rb");
+	if(file == NULL)
+    {
+      printf("Given File Name does not exist: %s\n", fileName);
+      return -1;
+    }
+
+    size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
+	fseek(file, 0, SEEK_SET);
+
+	unsigned char c[64];
+	unsigned char c_new[32];
+
+	bzero(c, sizeof(c));
+	MD5_CTX mdContext;
+	MD5_Init (&mdContext);
+
+	bzero(fileBuffer, sizeof(fileBuffer));
+	int byte_read = fread(fileBuffer, 1, file_size, file);
+	MD5_Update (&mdContext, fileBuffer, byte_read);
+	MD5_Final (c, &mdContext);
+	
+	for(int i = strlen(c) - 1; i < strlen(c); i++) {
+		char temp[3];
+	    sprintf(temp, "%0x", c[i]);
+	    strcat(c_new, temp);
+	}
+	printf("\nConverted hash: %s\n", c_new);
+	long int md5;
+	char *somethin1g;
+	
+	md5 = strtol(c_new, somethin1g, 16);
+
+	fclose(file);
+	return md5;
 }
 
 int main (int argc, char **argv)
@@ -103,7 +151,7 @@ int main (int argc, char **argv)
 	char username[20];
 	char password[20];
 
-	getDefaultFileName(dfs1, dfs2, dfs3, dfs4, username, password);
+	getDefaultFileName(argv[1], dfs1, dfs2, dfs3, dfs4, username, password);
 	printf("dfs1:%s:\n", dfs1);
 	printf("dfs2:%s:\n", dfs2);
 	printf("dfs3:%s:\n", dfs3);
@@ -111,4 +159,27 @@ int main (int argc, char **argv)
 	printf("username:%s:\n", username);
 	printf("password:%s:\n\n", password);
 
+	FILE *file;
+	char fileName[50];
+	char fileBuffer[1048576];
+    bzero(fileName, sizeof(fileName));
+    strcpy(fileName, "./Client_1/Buddhahd.jpg");
+
+    long int md5 = getMd5Sum(fileName);
+	printf("MD5: %lld\n", md5);
+
+    file = fopen(fileName, "rb");
+	if(file == NULL)
+    {
+      printf("Given File Name \"%s\" does not exist.\n", fileName);
+      return;
+    }
+
+    size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
+	fseek(file, 0, SEEK_SET);
+	
+	fclose(file);
 }
+
+// COMPILE: gcc dfClient.c -w -o dfc -lcrypto -lssl
+// RUN: ./dfc Client_1/dfc.conf

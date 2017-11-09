@@ -31,9 +31,9 @@ struct packet
 };
 
 //This function parses the dfc.conf to find the configurations.
-void getDefaultFileName(char *users) {
+void getDefaultFileName(char *filename, char *users) {
 	FILE *file;
-	file = fopen("./dfs.conf", "r");
+	file = fopen(filename, "r");
 	char data[1048576];
 	bzero(data, sizeof(data));
 
@@ -49,7 +49,7 @@ void getDefaultFileName(char *users) {
 	      			strcat(users, tokkk);
 	      		}
 	      		strcat(users, temppp);
-	      		strcat(users, "#");
+	      		strcat(users, "\n");
 	          	users[strlen(users)] = '\0';
 	      	}
 	    }
@@ -64,7 +64,7 @@ int main (int argc, char **argv)
 	char users[2000];
 	bzero(users, sizeof(users));
 
-	getDefaultFileName(users);
-	printf("users:%s:\n\n", users);
+	getDefaultFileName(argv[1], users);
+	printf("%s\n\n", users);
 
 }

@@ -11,7 +11,7 @@
 #include <openssl/md5.h>
 
 #define FILEPACKETSIZE 5*1024	
-
+char *key = "vipra";
 
 //The packet struct that will be passed between the client and servers.
 struct packet
@@ -141,6 +141,21 @@ long int getMd5Sum(char *fileName) {
 	return md5;
 }
 
+void getDecryptedData(char *encryptedData, char *decryptedData, int size) {
+	int i = 0;
+	int index = 0;
+
+	while (i < size) {
+		decryptedData[i] = encryptedData[i] ^ key[index++];
+		if (index == strlen(key)) {
+			index = 0;
+		}
+		i++;
+	}
+	decryptedData[i] = '\0';
+	//printf("\ndecryptedData: %s\n", decryptedData);
+}
+
 int main (int argc, char **argv)
 {
 	char dfs1[20];
@@ -163,7 +178,7 @@ int main (int argc, char **argv)
 	char fileName[50];
 	char fileBuffer[1048576];
     bzero(fileName, sizeof(fileName));
-    strcpy(fileName, "./Client_1/Buddhahd.jpg");
+    strcpy(fileName, "./Client_1/foo1.txt");
 
     long int md5 = getMd5Sum(fileName);
 	printf("MD5: %lld\n", md5);
@@ -177,8 +192,38 @@ int main (int argc, char **argv)
 
     size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
 	fseek(file, 0, SEEK_SET);
+	bzero(fileBuffer, sizeof(fileBuffer));
+	//int byte_read = fread(fileBuffer, 1, file_size, file);
+
+	char encryptedData[1048576];
+	bzero(encryptedData, sizeof(encryptedData));
 	
+	int index = 0;
+	
+	
+	char charRead;
+	int byteCount = 0;
+	int size = 0;
+
+	while(1) {
+		charRead = fgetc(file);
+		if (charRead == EOF) {
+			break;
+		}
+
+		char ch = charRead ^ key[index++];
+		encryptedData[size++] = ch;
+
+		if (index == strlen(key)) {
+			index = 0;
+		}
+	}
+	encryptedData[size] = '\0';
 	fclose(file);
+
+	char decryptedData[size];
+	getDecryptedData(encryptedData, decryptedData, size);
+	printf("decryptedData: %s\n", decryptedData);
 }
 
 // COMPILE: gcc dfClient.c -w -o dfc -lcrypto -lssl

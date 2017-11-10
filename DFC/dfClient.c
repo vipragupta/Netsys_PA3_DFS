@@ -102,6 +102,57 @@ size_t getFileSize(FILE *file) {
   	return file_size;
 }
 
+int getDecimalOfHexChar(char c) {
+	if (c >= '0' && c <= '9') {
+		return c - '0';
+	} else if (c == 'a') {
+		return 10;
+	} else if (c == 'b') {
+		return 11;
+	} else if (c == 'c') {
+		return 12;
+	} else if (c == 'd') {
+		return 13;
+	} else if (c == 'e') {
+		return 14;
+	} else if (c == 'f') {
+		return 15;
+	}
+}
+
+int getSixteenDigits(int i) {
+	int index = i % 5;
+	if (index == 1) {
+		return 16;
+	} else if (index == 2) {
+		return 56;
+	} else if (index == 3) {
+		return 96;
+	} else if (index == 4) {
+		return 36;
+	} else if (index == 0) {
+		return 76;
+	}
+}
+
+long getDecimalValue(char *hex) {
+	long decimal = 0;
+	decimal = getDecimalOfHexChar(hex[(strlen(hex) - 1)]);
+	int index = 1;
+
+	for (int i = strlen(hex) - 2 ; i >= 0 ; i--) {
+		
+		int d = getDecimalOfHexChar(hex[i]);
+		int multiplier = getSixteenDigits(index);
+		int product = d * multiplier;
+		product = product % 100;
+		decimal = decimal + product;
+		//printf("decimal: %d\t\tchar: %c\t\td: %d\t\tmultiplier: %d\t\tproduct:%d\t\t\n", decimal, hex[i], d, multiplier, product);
+		index++;
+	}
+	return decimal % 100;
+}
+
 long int getMd5Sum(char *fileName) {
 	FILE *file;
 	char fileBuffer[FILEBUFFERSIZE];
@@ -132,15 +183,16 @@ long int getMd5Sum(char *fileName) {
 	    sprintf(temp, "%0x", c[i]);
 	    strcat(c_new, temp);
 	}
-	printf("\nConverted hash: %s\n", c_new);
-	long long md5;
+
 	char *somethin1g;
+	printf("MD5 Hash: %s\n", c_new);
 	
-	md5 = strtol(c_new, somethin1g, 16);
+	long md51 = getDecimalValue(c_new);
 
 	fclose(file);
-	return md5;
+	return md51;
 }
+
 
 void getEncryptedData(char *original, char *converted, int size) {
 	int i = 0;
@@ -151,7 +203,6 @@ void getEncryptedData(char *original, char *converted, int size) {
 		i++;
 	}
 	converted[i] = '\0';
-	//printf("\ndecryptedData: %s\n", decryptedData);
 }
 
 int writeFile(char *fileName, char *data, int size, int enc) {
@@ -159,7 +210,6 @@ int writeFile(char *fileName, char *data, int size, int enc) {
 	char fileNameW[50];
 	bzero(fileNameW, sizeof(fileNameW));
 
-	//strcpy(fileNameW, "Decry_");
 	strcpy(fileNameW, fileName);
 	if (enc == 1) {
 		strcat(fileNameW, "_e");
@@ -168,7 +218,7 @@ int writeFile(char *fileName, char *data, int size, int enc) {
 	}
 
 	file = fopen(fileNameW,"wb");
-	printf("File Opened:%s \n", fileNameW);	 
+	//printf("File Opened:%s \n", fileNameW);	 
 	
 	int fileSize = fwrite(data , sizeof(unsigned char), size, file);
 
@@ -202,10 +252,10 @@ int main (int argc, char **argv)
 	char fileName[50];
 	char fileBuffer[FILEBUFFERSIZE];
     bzero(fileName, sizeof(fileName));
-    strcpy(fileName, "./Client_1/Buddhahd.jpg");
+    strcpy(fileName, "./Client_1/foo1.txt");
 
-    long int md5 = getMd5Sum(fileName);
-	printf("MD5: %lld\n", md5);
+    long md5 = getMd5Sum(fileName);
+	printf("MD5: %ld\n\n", md5);
 
     file = fopen(fileName, "rb");
 	if(file == NULL)
@@ -217,7 +267,6 @@ int main (int argc, char **argv)
     size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
 	fseek(file, 0, SEEK_SET);
 	bzero(fileBuffer, sizeof(fileBuffer));
-	//int byte_read = fread(fileBuffer, 1, file_size, file);
 
 	char encryptedData[FILEBUFFERSIZE];
 	bzero(encryptedData, sizeof(encryptedData));
@@ -234,11 +283,11 @@ int main (int argc, char **argv)
 
 	getEncryptedData(fileBuffer, encryptedData, byte_read);
 	writeFile(fileName, encryptedData, byte_read, 1);
-	printf("size:%d  encryptedData: %s\n", byte_read, encryptedData);
+	printf("size:%d\n\nEncryptData: %s\n", byte_read, encryptedData);
 	
 	getEncryptedData(encryptedData, decryptedData, byte_read);
 	writeFile(fileName, decryptedData, byte_read, 0);
-	printf("decryptedData: %s\n", decryptedData);
+	printf("\nDecryptData: %s\n", decryptedData);
 }
 
 // COMPILE: gcc dfClient.c -w -o dfc -lcrypto -lssl

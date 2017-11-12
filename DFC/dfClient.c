@@ -205,20 +205,19 @@ void getEncryptedData(char *original, char *converted, int size) {
 	converted[i] = '\0';
 }
 
-int writeFile(char *fileName, char *data, int size, int enc) {
+int writeFile(char *fileName, char *additionalFileName, char *data, int size, int append) {
 	FILE *file;
 	char fileNameW[50];
 	bzero(fileNameW, sizeof(fileNameW));
 
 	strcpy(fileNameW, fileName);
-	if (enc == 1) {
-		strcat(fileNameW, "_e");
-	} else {
-		strcat(fileNameW, "_d");
-	}
+	strcat(fileNameW, additionalFileName);
 
-	file = fopen(fileNameW,"wb");
-	//printf("File Opened:%s \n", fileNameW);	 
+	if (append == 0) {
+		file = fopen(fileNameW,"wb");
+	} else {
+		file = fopen(fileNameW,"ab");
+	}
 	
 	int fileSize = fwrite(data , sizeof(unsigned char), size, file);
 
@@ -228,6 +227,75 @@ int writeFile(char *fileName, char *data, int size, int enc) {
         exit(1);
     }
     fclose(file);
+}
+
+/*
+chunkNumber range: 1-4
+
+*/
+size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
+
+	FILE *file;
+	char fileBuffer[FILEBUFFERSIZE];
+
+	file = fopen(fileName, "rb");
+	if(file == NULL)
+    {
+      printf("Given File Name \"%s\" does not exist.\n", fileName);
+      return;
+    }
+
+    size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
+	fseek(file, 0, SEEK_SET);
+	
+
+	size_t chunkSize;
+	
+
+	int byte_read;
+	int i = 1;
+
+	while (1) {
+		if (i < 4) {
+			chunkSize = file_size / 4;
+		} else {
+			chunkSize = file_size - (file_size/ 4) * 3;
+		}
+		bzero(fileBuffer, sizeof(fileBuffer));
+		byte_read = fread(fileBuffer, 1, chunkSize, file);
+		//printf("Chunk:%d     fileBuffer:%s:\n", chunkNum, fileBuffer);
+		if (i == chunkNum) {
+			break;
+		}
+		i ++;
+	}
+
+	fclose(file);
+	
+	printf("Chunk:%d     FileSize:%d\t\tchunkSize:%d\nfileBuffer:%s:\n\n\n", chunkNum, file_size, chunkSize, fileBuffer);
+
+	getEncryptedData(fileBuffer, encryptedData, byte_read);
+	//printf("byteRead:%d\t\tEncryptData: %s\n\n", byte_read, encryptedData);
+	
+	char fileChunkName[50];
+	bzero(fileChunkName, sizeof(fileChunkName));
+	strcpy(fileChunkName, fileName);
+	strcat(fileChunkName, "_");
+	fileChunkName[sizeof(fileChunkName)] = (char) chunkNum;
+	//strcat(fileChunkName, (char)chunkNum);
+
+	//writeFile(fileChunkName, "", encryptedData, byte_read, 1);
+	
+	return chunkSize;
+}
+
+void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFileName, int size, int append) {
+
+	char decryptedData[FILEBUFFERSIZE];
+	bzero(decryptedData, sizeof(decryptedData));
+	
+	getEncryptedData(encryptedData, decryptedData, size);
+	writeFile(fileName, additionalFileName, decryptedData, size, append);
 }
 
 int main (int argc, char **argv)
@@ -248,47 +316,37 @@ int main (int argc, char **argv)
 	printf("username:%s:\n", username);
 	printf("password:%s:\n\n", password);
 
-	FILE *file;
+	
 	char fileName[50];
-	char fileBuffer[FILEBUFFERSIZE];
     bzero(fileName, sizeof(fileName));
-    strcpy(fileName, "./Client_1/foo1.txt");
+    strcpy(fileName, "./Client_1/foo1");
 
     long md5 = getMd5Sum(fileName);
 	printf("MD5: %ld\n\n", md5);
 
-    file = fopen(fileName, "rb");
-	if(file == NULL)
-    {
-      printf("Given File Name \"%s\" does not exist.\n", fileName);
-      return;
-    }
+	char encryptedDataOne[FILEBUFFERSIZE];
+	bzero(encryptedDataOne, sizeof(encryptedDataOne));
+	char encryptedDataTwo[FILEBUFFERSIZE];
+	bzero(encryptedDataTwo, sizeof(encryptedDataTwo));
+	char encryptedDataThree[FILEBUFFERSIZE];
+	bzero(encryptedDataThree, sizeof(encryptedDataThree));
+	char encryptedDataFour[FILEBUFFERSIZE];
+	bzero(encryptedDataFour, sizeof(encryptedDataFour));
 
-    size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
-	fseek(file, 0, SEEK_SET);
-	bzero(fileBuffer, sizeof(fileBuffer));
-
-	char encryptedData[FILEBUFFERSIZE];
-	bzero(encryptedData, sizeof(encryptedData));
+	size_t chunkSizeOne = getFileChunk(encryptedDataOne, fileName, 1);
+	size_t chunkSizeTwo = getFileChunk(encryptedDataTwo, fileName, 2);
+	size_t chunkSizeThree = getFileChunk(encryptedDataThree, fileName, 3);
+	size_t chunkSizeFour = getFileChunk(encryptedDataFour, fileName, 4);
 	
-	int index = 0;
-	
-	char charRead;
-	int byteCount = 0;
 
-	int byte_read = fread(fileBuffer, 1, file_size, file);
-	char decryptedData[byte_read];
 
-	fclose(file);
-
-	getEncryptedData(fileBuffer, encryptedData, byte_read);
-	writeFile(fileName, encryptedData, byte_read, 1);
-	printf("size:%d\n\nEncryptData: %s\n", byte_read, encryptedData);
-	
-	getEncryptedData(encryptedData, decryptedData, byte_read);
-	writeFile(fileName, decryptedData, byte_read, 0);
-	printf("\nDecryptData: %s\n", decryptedData);
+	DecryptDataAndWrite(encryptedDataOne, fileName, "_Final", chunkSizeOne, 0);
+	DecryptDataAndWrite(encryptedDataTwo, fileName, "_Final", chunkSizeTwo, 1);
+	DecryptDataAndWrite(encryptedDataThree, fileName, "_Final", chunkSizeThree, 1);
+	DecryptDataAndWrite(encryptedDataFour, fileName, "_Final", chunkSizeFour, 1);
 }
+
+
 
 // COMPILE: gcc dfClient.c -w -o dfc -lcrypto -lssl
 // RUN: ./dfc Client_1/dfc.conf

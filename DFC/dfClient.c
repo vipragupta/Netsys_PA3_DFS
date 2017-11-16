@@ -438,25 +438,51 @@ int main (int argc, char **argv)
 	} else {
 		printf("Connection Successful for Server 1.\n");
 	}
-	if (connect(sock2, (struct sockaddr *) &servaddr2, sizeof(servaddr2)) < 0) {
-		perror("Problem in connecting to the server 2");
-		exit(3);
-	} else {
-		printf("Connection Successful for Server 2.\n");
-	}
-	if (connect(sock3, (struct sockaddr *) &servaddr3, sizeof(servaddr3)) < 0) {
-		perror("Problem in connecting to the server 3");
-		exit(3);
-	} else {
-		printf("Connection Successful for Server 3.\n");
-	}
-	if (connect(sock4, (struct sockaddr *) &servaddr4, sizeof(servaddr4)) < 0) {
-		perror("Problem in connecting to the server 4");
-		exit(3);
-	} else {
-		printf("Connection Successful for Server 4.\n");
-	}
+	// if (connect(sock2, (struct sockaddr *) &servaddr2, sizeof(servaddr2)) < 0) {
+	// 	perror("Problem in connecting to the server 2");
+	// 	exit(3);
+	// } else {
+	// 	printf("Connection Successful for Server 2.\n");
+	// }
+	// if (connect(sock3, (struct sockaddr *) &servaddr3, sizeof(servaddr3)) < 0) {
+	// 	perror("Problem in connecting to the server 3");
+	// 	exit(3);
+	// } else {
+	// 	printf("Connection Successful for Server 3.\n");
+	// }
+	// if (connect(sock4, (struct sockaddr *) &servaddr4, sizeof(servaddr4)) < 0) {
+	// 	perror("Problem in connecting to the server 4");
+	// 	exit(3);
+	// } else {
+	// 	printf("Connection Successful for Server 4.\n");
+	// }
 	while (fgets(sendline, MAXLINE, stdin) != NULL) {
+
+
+		struct packet pack;
+		int nbytes;
+		unsigned int server_length = sizeof(servaddr1);
+
+		strcpy(pack.username, username);
+		strcpy(pack.password, password);
+		nbytes = sendto(sock1, &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+
+		if (nbytes < 0){
+			printf("Error in sendto\n");
+		}
+
+		printf("Waiting for server ack..\n");
+		struct packet receivedPacket;
+		nbytes = recvfrom(sock1, &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr1, &server_length);  
+		
+		if (nbytes > 0) {
+			printf("%s", "Server Sent:");
+			fputs(receivedPacket.message, stdout);
+		} else {
+			printf("Negative bytes received.\n");
+		}
+
+/*
 
 		send(sock1, sendline, strlen(sendline), 0);
 		send(sock2, sendline, strlen(sendline), 0);
@@ -492,8 +518,11 @@ int main (int argc, char **argv)
 			perror("The server 4 terminated prematurely");
 			exit(4);
 		}
+
 		printf("%s", "String received from the server 4: ");
 		fputs(recvline4, stdout);
+
+		*/
 	}
 
 	exit(0);

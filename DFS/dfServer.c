@@ -87,8 +87,8 @@ int main (int argc, char **argv)
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	servaddr.sin_port = htons(atoi(argv[2]));
-
-
+	int nbytes;
+	unsigned int remote_length;
 
  	//bind the socket
 	bind (listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
@@ -112,15 +112,34 @@ int main (int argc, char **argv)
 
 			//close listening socket
 			close (listenfd);
+			remote_length = sizeof(cliaddr);
+			struct packet client_pack;
 
-			while ( (n = recv(connfd, buf, MAXLINE,0)) > 0)  {
-				printf("%s","String received from and resent to the client:");
-				puts(buf);
-			 	send(connfd, buf, n, 0);
+			while (1) {
+				if (recvfrom(connfd, &client_pack, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, &remote_length) < 0)
+			    {
+			    	printf("%s\n", "Read error");
+			    	break;
+			    }
+
+			    printf("Username Received: %s\n", client_pack.username);
+			    printf("password Received: %s\n", client_pack.password);
+			    
+			    strcpy(client_pack.message, "Successful");
+			    nbytes = sendto(connfd, &client_pack, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+				if (nbytes < 0){
+					printf("Error in sendto\n");
+				}
 			}
 
-			if (n < 0)
-				printf("%s\n", "Read error");
+			// while ( (n = recv(connfd, buf, MAXLINE,0)) > 0)  {
+			// 	printf("%s","String received from and resent to the client:");
+			// 	puts(buf);
+			//  	send(connfd, buf, n, 0);
+			// }
+
+			// if (n < 0)
+			// 	printf("%s\n", "Read error");
 			
 			exit(0);
 		}

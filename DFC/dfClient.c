@@ -33,6 +33,17 @@ struct packet
 	int secondFileSize;
 };
 
+void getIpandPort(char *str, char *ip, char *port) {
+	char *tok = strtok(str, ":");
+	char *temp = strtok(NULL, "\0");
+
+	strcpy(ip, tok);
+	ip[strlen(ip)] = '\0';
+
+	strcpy(port, temp);
+	port[strlen(port)] = '\0';
+}
+
 
 //This function parses the dfc.conf to find the configurations.
 void getDefaultFileName(char *filename, char *dfs1, char *dfs2, char *dfs3, char *dfs4, char *user, char *pwd) {
@@ -301,24 +312,34 @@ void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFi
 
 int main (int argc, char **argv)
 {
-	/*
+	
 	char dfs1[20];
 	char dfs2[20];
 	char dfs3[20];
 	char dfs4[20];
 
+	char dfs1Ip[20];
+	char dfs2Ip[20];
+	char dfs3Ip[20];
+	char dfs4Ip[20];
+
+	char dfs1Port[20];
+	char dfs2Port[20];
+	char dfs3Port[20];
+	char dfs4Port[20];
+
 	char username[20];
 	char password[20];
 
 	getDefaultFileName(argv[1], dfs1, dfs2, dfs3, dfs4, username, password);
-	printf("dfs1:%s:\n", dfs1);
-	printf("dfs2:%s:\n", dfs2);
-	printf("dfs3:%s:\n", dfs3);
-	printf("dfs4:%s:\n", dfs4);
+	// printf("dfs1:%s:\n", dfs1);
+	// printf("dfs2:%s:\n", dfs2);
+	// printf("dfs3:%s:\n", dfs3);
+	// printf("dfs4:%s:\n", dfs4);
 	printf("username:%s:\n", username);
 	printf("password:%s:\n\n", password);
 
-	
+	/*
 	char fileName[50];
     bzero(fileName, sizeof(fileName));
     strcpy(fileName, "./Client_1/foo1");
@@ -347,48 +368,132 @@ int main (int argc, char **argv)
 	DecryptDataAndWrite(encryptedDataThree, fileName, "_Final", chunkSizeThree, 1);
 	DecryptDataAndWrite(encryptedDataFour, fileName, "_Final", chunkSizeFour, 1);
 */
-	int sockfd;
-	struct sockaddr_in servaddr;
-	char sendline[MAXLINE], recvline[MAXLINE];
-
-	//basic check of the arguments
-	//additional checks can be inserted
-	// if (argc !=2) {
-	//  perror("Usage: TCPClient <IP address of the server");
-	//  exit(1);
-	// }
+	int sock1, sock2, sock3, sock4;
+	struct sockaddr_in servaddr1;
+	struct sockaddr_in servaddr2;
+	struct sockaddr_in servaddr3;
+	struct sockaddr_in servaddr4;
+	char sendline[MAXLINE];
+	char recvline1[MAXLINE];
+	char recvline2[MAXLINE];
+	char recvline3[MAXLINE];
+	char recvline4[MAXLINE];
 
 	//Create a socket for the client
 	//If sockfd<0 there was an error in the creation of the socket
-	if ((sockfd = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-		perror("Problem in creating the socket");
+	if ((sock1 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("Problem in creating the socket for Server 1.");
+		exit(2);
+	}
+	if ((sock2 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("Problem in creating the socket for Server 2.");
+		exit(2);
+	}
+	if ((sock3 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("Problem in creating the socket for Server 3.");
+		exit(2);
+	}
+	if ((sock4 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("Problem in creating the socket for Server 4.");
 		exit(2);
 	}
 
-	//Creation of the socket
-	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr= inet_addr(argv[2]);
-	servaddr.sin_port =  htons(atoi(argv[3]));  //convert to big-endian order
 
-	printf("ip:%s:\tport:%s:\n", argv[2], argv[3]);
+	//Creation of the socket
+	memset(&servaddr1, 0, sizeof(servaddr1));
+	memset(&servaddr2, 0, sizeof(servaddr2));
+	memset(&servaddr3, 0, sizeof(servaddr3));
+	memset(&servaddr4, 0, sizeof(servaddr4));
+
+	getIpandPort(dfs1, dfs1Ip, dfs1Port);
+	getIpandPort(dfs2, dfs2Ip, dfs2Port);
+	getIpandPort(dfs3, dfs3Ip, dfs3Port);
+	getIpandPort(dfs4, dfs4Ip, dfs4Port);
+	
+	printf("1. IP:%s\t\tPort:%s\n", dfs1Ip, dfs1Port);
+	printf("2. IP:%s\t\tPort:%s\n", dfs2Ip, dfs2Port);
+	printf("3. IP:%s\t\tPort:%s\n", dfs3Ip, dfs3Port);
+	printf("4. IP:%s\t\tPort:%s\n", dfs4Ip, dfs4Port);
+
+	servaddr1.sin_family = AF_INET;
+	servaddr1.sin_addr.s_addr= inet_addr(dfs1Ip);
+	servaddr1.sin_port =  htons(atoi(dfs1Port));  //convert to big-endian order
+
+	servaddr2.sin_family = AF_INET;
+	servaddr2.sin_addr.s_addr= inet_addr(dfs2Ip);
+	servaddr2.sin_port =  htons(atoi(dfs2Port));  //convert to big-endian order
+
+	servaddr3.sin_family = AF_INET;
+	servaddr3.sin_addr.s_addr= inet_addr(dfs3Ip);
+	servaddr3.sin_port =  htons(atoi(dfs3Port));  //convert to big-endian order
+
+	servaddr4.sin_family = AF_INET;
+	servaddr4.sin_addr.s_addr= inet_addr(dfs4Ip);
+	servaddr4.sin_port =  htons(atoi(dfs4Port));  //convert to big-endian order
+
 	//Connection of the client to the socket
-	if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr))<0) {
-		perror("Problem in connecting to the server");
+	if (connect(sock1, (struct sockaddr *) &servaddr1, sizeof(servaddr1)) < 0) {
+		perror("Problem in connecting to the server 1");
 		exit(3);
+	} else {
+		printf("Connection Successful for Server 1.\n");
 	}
-	printf("Connection Successful\n");
+	if (connect(sock2, (struct sockaddr *) &servaddr2, sizeof(servaddr2)) < 0) {
+		perror("Problem in connecting to the server 2");
+		exit(3);
+	} else {
+		printf("Connection Successful for Server 2.\n");
+	}
+	if (connect(sock3, (struct sockaddr *) &servaddr3, sizeof(servaddr3)) < 0) {
+		perror("Problem in connecting to the server 3");
+		exit(3);
+	} else {
+		printf("Connection Successful for Server 3.\n");
+	}
+	if (connect(sock4, (struct sockaddr *) &servaddr4, sizeof(servaddr4)) < 0) {
+		perror("Problem in connecting to the server 4");
+		exit(3);
+	} else {
+		printf("Connection Successful for Server 4.\n");
+	}
 	while (fgets(sendline, MAXLINE, stdin) != NULL) {
 
-		send(sockfd, sendline, strlen(sendline), 0);
+		send(sock1, sendline, strlen(sendline), 0);
+		send(sock2, sendline, strlen(sendline), 0);
+		send(sock3, sendline, strlen(sendline), 0);
+		send(sock4, sendline, strlen(sendline), 0);
 
-		if (recv(sockfd, recvline, MAXLINE,0) == 0){
+		if (recv(sock1, recvline1, MAXLINE,0) == 0){
 			//error: server terminated prematurely
-			perror("The server terminated prematurely");
+			perror("The server 1 terminated prematurely");
 			exit(4);
 		}
-		printf("%s", "String received from the server: ");
-		fputs(recvline, stdout);
+		printf("%s", "String received from the server 1: ");
+		fputs(recvline1, stdout);
+
+		if (recv(sock2, recvline2, MAXLINE,0) == 0){
+			//error: server terminated prematurely
+			perror("The server 2 terminated prematurely");
+			exit(4);
+		}
+		printf("%s", "String received from the server 2: ");
+		fputs(recvline2, stdout);
+
+		if (recv(sock3, recvline3, MAXLINE,0) == 0){
+			//error: server terminated prematurely
+			perror("The server 3 terminated prematurely");
+			exit(4);
+		}
+		printf("%s", "String received from the server 3: ");
+		fputs(recvline3, stdout);
+
+		if (recv(sock4, recvline4, MAXLINE,0) == 0){
+			//error: server terminated prematurely
+			perror("The server 4 terminated prematurely");
+			exit(4);
+		}
+		printf("%s", "String received from the server 4: ");
+		fputs(recvline4, stdout);
 	}
 
 	exit(0);

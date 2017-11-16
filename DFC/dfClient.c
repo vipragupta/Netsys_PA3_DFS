@@ -12,6 +12,7 @@
 
 #define FILEPACKETSIZE 5*1024	
 #define FILEBUFFERSIZE 1048576
+#define MAXLINE 4096
 char *key = "vipra";
 
 //The packet struct that will be passed between the client and servers.
@@ -42,46 +43,46 @@ void getDefaultFileName(char *filename, char *dfs1, char *dfs2, char *dfs3, char
 	int i = 0;
 
     if (file) {
-	    while(fgets(data, sizeof(data), file)) {
-		    if (i < 4) {
-		        char *tok = strtok(data, " ");
-		        if (tok != NULL) {
-		          char *temp = strtok(NULL, " ");
-		          if (strcmp(temp, "DFS1") == 0){
-		          	char *tempdouble = strtok(NULL, "\n");
-		          	strcpy(dfs1, tempdouble);
-		          	dfs1[strlen(dfs1)] = '\0';
-		          } else if (strcmp(temp, "DFS2") == 0){
-		          	char *tempdouble = strtok(NULL, "\n");
-		          	strcpy(dfs2, tempdouble);
-		          	dfs2[strlen(dfs2)] = '\0';
-		          } else if (strcmp(temp, "DFS3") == 0){
-		          	char *tempdouble = strtok(NULL, "\n");
-		          	strcpy(dfs3, tempdouble);
-		          	dfs3[strlen(dfs3)] = '\0';
-		          } else if (strcmp(temp, "DFS4") == 0){
-		          	char *tempdouble = strtok(NULL, "\n");
-		          	strcpy(dfs4, tempdouble);
-		          	dfs4[strlen(dfs4)] = '\0';
-		          }
-		        }
-		    } else if (i == 4) {
-		      	char *tokk = strtok(data, ":");
-		      	if (tokk != NULL) {
-		      		char *tempp = strtok(NULL, "\n");
-		      		strcpy(user, tempp);
-		          	user[strlen(user)] = '\0';
-		      	}
-		    } else if (i == 5) {
-		      	char *tokkk = strtok(data, ":");
-		      	if (tokkk != NULL) {
-		      		char *temppp = strtok(NULL, "\n");
-		      		strcpy(pwd, temppp);
-		          	pwd[strlen(pwd)] = '\0';
-		      	}
-		    }
-	    	i++;
-	    }
+			 while(fgets(data, sizeof(data), file)) {
+				 if (i < 4) {
+				     char *tok = strtok(data, " ");
+				     if (tok != NULL) {
+				       char *temp = strtok(NULL, " ");
+				       if (strcmp(temp, "DFS1") == 0){
+				       	char *tempdouble = strtok(NULL, "\n");
+				       	strcpy(dfs1, tempdouble);
+				       	dfs1[strlen(dfs1)] = '\0';
+				       } else if (strcmp(temp, "DFS2") == 0){
+				       	char *tempdouble = strtok(NULL, "\n");
+				       	strcpy(dfs2, tempdouble);
+				       	dfs2[strlen(dfs2)] = '\0';
+				       } else if (strcmp(temp, "DFS3") == 0){
+				       	char *tempdouble = strtok(NULL, "\n");
+				       	strcpy(dfs3, tempdouble);
+				       	dfs3[strlen(dfs3)] = '\0';
+				       } else if (strcmp(temp, "DFS4") == 0){
+				       	char *tempdouble = strtok(NULL, "\n");
+				       	strcpy(dfs4, tempdouble);
+				       	dfs4[strlen(dfs4)] = '\0';
+				       }
+				     }
+				 } else if (i == 4) {
+				   	char *tokk = strtok(data, ":");
+				   	if (tokk != NULL) {
+				   		char *tempp = strtok(NULL, "\n");
+				   		strcpy(user, tempp);
+				       	user[strlen(user)] = '\0';
+				   	}
+				 } else if (i == 5) {
+				   	char *tokkk = strtok(data, ":");
+				   	if (tokkk != NULL) {
+				   		char *temppp = strtok(NULL, "\n");
+				   		strcpy(pwd, temppp);
+				       	pwd[strlen(pwd)] = '\0';
+				   	}
+				 }
+			 	i++;
+			 }
     } else {
     	printf("File Open Failed for *dfc.conf*\n");
     }
@@ -180,8 +181,8 @@ long int getMd5Sum(char *fileName) {
 	
 	for(int i = 0; i < strlen(c); i++) {
 		char temp[3];
-	    sprintf(temp, "%0x", c[i]);
-	    strcat(c_new, temp);
+			 sprintf(temp, "%0x", c[i]);
+			 strcat(c_new, temp);
 	}
 
 	char *somethin1g;
@@ -300,6 +301,7 @@ void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFi
 
 int main (int argc, char **argv)
 {
+	/*
 	char dfs1[20];
 	char dfs2[20];
 	char dfs3[20];
@@ -344,6 +346,52 @@ int main (int argc, char **argv)
 	DecryptDataAndWrite(encryptedDataTwo, fileName, "_Final", chunkSizeTwo, 1);
 	DecryptDataAndWrite(encryptedDataThree, fileName, "_Final", chunkSizeThree, 1);
 	DecryptDataAndWrite(encryptedDataFour, fileName, "_Final", chunkSizeFour, 1);
+*/
+	int sockfd;
+	struct sockaddr_in servaddr;
+	char sendline[MAXLINE], recvline[MAXLINE];
+
+	//basic check of the arguments
+	//additional checks can be inserted
+	// if (argc !=2) {
+	//  perror("Usage: TCPClient <IP address of the server");
+	//  exit(1);
+	// }
+
+	//Create a socket for the client
+	//If sockfd<0 there was an error in the creation of the socket
+	if ((sockfd = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("Problem in creating the socket");
+		exit(2);
+	}
+
+	//Creation of the socket
+	memset(&servaddr, 0, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr= inet_addr(argv[2]);
+	servaddr.sin_port =  htons(atoi(argv[3]));  //convert to big-endian order
+
+	printf("ip:%s:\tport:%s:\n", argv[2], argv[3]);
+	//Connection of the client to the socket
+	if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr))<0) {
+		perror("Problem in connecting to the server");
+		exit(3);
+	}
+	printf("Connection Successful\n");
+	while (fgets(sendline, MAXLINE, stdin) != NULL) {
+
+		send(sockfd, sendline, strlen(sendline), 0);
+
+		if (recv(sockfd, recvline, MAXLINE,0) == 0){
+			//error: server terminated prematurely
+			perror("The server terminated prematurely");
+			exit(4);
+		}
+		printf("%s", "String received from the server: ");
+		fputs(recvline, stdout);
+	}
+
+	exit(0);
 }
 
 

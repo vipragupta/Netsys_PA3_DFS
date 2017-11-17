@@ -12,6 +12,8 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <dirent.h>
+
 
 #define FILEPACKETSIZE 5*1024	
 #define MAXLINE 4096
@@ -65,25 +67,18 @@ void getDefaultFileName(char *filename, char *users) {
     fclose(file); 
 }
 
-int isValidUser(char *username, char *password, char *validUserList) {
-	char userReceived[1000];
+int isValidUser(char *userReceived, char *validUserList) {
 	
 	char tempList[1000];
 	bzero(tempList, sizeof(tempList));
 	strcpy(tempList, validUserList);
 	tempList[strlen(tempList)] = '\0';
 
-    bzero(userReceived, sizeof(userReceived));
-
-    strcpy(userReceived, username);
-    strcat(userReceived, password);
-    char * data;
-
     char *tokkk = strtok(tempList, ":");
     while (1) {
     	if (tokkk != NULL) {
     		if (strcmp (tokkk, userReceived) == 0) {
-    			printf("User is valid.\n");
+    			printf("\nUser is valid.\n");
     			return 1;
     		}
     	} else {
@@ -101,7 +96,7 @@ int writeFile(char *fileName, char *dir, char *data, int size) {
 
 	strcpy(fileNameW, dir);
 	strcat(fileNameW, fileName);
-	printf("fileName:%s\tdir:%s\n", fileName, dir);
+	//printf("fileName:%s\tdir:%s\n", fileName, dir);
 
 	file = fopen(fileNameW,"wb");
 	
@@ -125,6 +120,7 @@ int main (int argc, char **argv)
 	bzero(defaultDir, sizeof(defaultDir));
 	strcpy(defaultDir, argv[1]);
 	
+	printf("defaultDir: %s\t%c\t%d\n", defaultDir, defaultDir[strlen(defaultDir) - 1], defaultDir[strlen(defaultDir) - 1] != '/');
 	if (defaultDir[strlen(defaultDir) - 1] != '/') {
 		defaultDir[strlen(defaultDir)] = '/';	
 	}
@@ -192,11 +188,40 @@ int main (int argc, char **argv)
 			    printf("FileName: %s\n", clientPacket.firstFileName);
 			    printf("FileSize: %d\n", clientPacket.firstFileSize);
 			    
-			    int validUser = isValidUser(clientPacket.username, clientPacket.password, users);
+			    char userReceived[1000];
+			    bzero(userReceived, sizeof(userReceived));
+
+			    strcpy(userReceived, clientPacket.username);
+			    strcat(userReceived, clientPacket.password);
+			    int validUser = isValidUser(userReceived, users);
+
+			    char userDir[100];
+			    bzero(userDir, sizeof(userDir));
+			    strcpy(userDir, defaultDir);
+			    strcat(userDir, clientPacket.username);
+			    strcat(userDir, "/");
+
 			    //printf("UserList: %s\n", users);
 			    if (validUser == 1) {
-			    	writeFile(clientPacket.firstFileName, defaultDir, clientPacket.firstFile, clientPacket.firstFileSize);
-			    	strcpy(clientPacket.message, "Successful\n");
+			    	DIR *dir;
+			    	int ready = 1;
+			    	if ((dir = opendir (userDir)) == NULL) {
+			    		ready = 0;
+			    		printf("%s directory doesn't exist, creating...\n", userDir);
+			    		int st = mkdir(userDir, 0700);
+			    		if (st != 0) {
+			    			printf("mkdir Failed\n");
+			    		} else {
+			    			ready = 1;
+			    		}
+			    	}
+			    	if (ready == 1) {
+				    	writeFile(clientPacket.firstFileName, userDir, clientPacket.firstFile, clientPacket.firstFileSize);
+				    	strcpy(clientPacket.message, "Successful\n");
+			    	} else {
+			    		strcpy(clientPacket.message, "Directory Failed\n");
+			    	}
+			    	closedir (dir);
 			    } else {
 			    	printf("User is Invalid.\n");
 			    	strcpy(clientPacket.message, "Invalid User\n");

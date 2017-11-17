@@ -120,7 +120,7 @@ int main (int argc, char **argv)
 	bzero(defaultDir, sizeof(defaultDir));
 	strcpy(defaultDir, argv[1]);
 	
-	printf("defaultDir: %s\t%c\t%d\n", defaultDir, defaultDir[strlen(defaultDir) - 1], defaultDir[strlen(defaultDir) - 1] != '/');
+	printf("defaultDir: %s\n", defaultDir);
 	if (defaultDir[strlen(defaultDir) - 1] != '/') {
 		defaultDir[strlen(defaultDir)] = '/';	
 	}
@@ -185,8 +185,10 @@ int main (int argc, char **argv)
 			    printf("***Received***\n");
 			    printf("Username: %s\n", clientPacket.username);
 			    printf("password: %s\n", clientPacket.password);
-			    printf("FileName: %s\n", clientPacket.firstFileName);
-			    printf("FileSize: %d\n", clientPacket.firstFileSize);
+			    printf("FileName1: %s\n", clientPacket.firstFileName);
+			    printf("FileSize1: %d\n", clientPacket.firstFileSize);
+			    printf("FileName2: %s\n", clientPacket.secondFileName);
+			    printf("FileSize2: %d\n", clientPacket.secondFileSize);
 			    
 			    char userReceived[1000];
 			    bzero(userReceived, sizeof(userReceived));
@@ -217,6 +219,7 @@ int main (int argc, char **argv)
 			    	}
 			    	if (ready == 1) {
 				    	writeFile(clientPacket.firstFileName, userDir, clientPacket.firstFile, clientPacket.firstFileSize);
+				    	writeFile(clientPacket.secondFileName, userDir, clientPacket.secondFile, clientPacket.secondFileSize);
 				    	strcpy(clientPacket.message, "Successful\n");
 			    	} else {
 			    		strcpy(clientPacket.message, "Directory Failed\n");

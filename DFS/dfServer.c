@@ -1,3 +1,7 @@
+//		gcc dfServer.c -o server
+//		./server DFS1/ 8886
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -51,7 +55,7 @@ void getDefaultFileName(char *filename, char *users) {
 		    			strcat(users, tokkk);
 		    		}
 		    		strcat(users, temppp);
-		    		strcat(users, "\n");
+		    		strcat(users, ":");
 		        	users[strlen(users)] = '\0';
 		    	}
 		  }
@@ -61,12 +65,72 @@ void getDefaultFileName(char *filename, char *users) {
     fclose(file); 
 }
 
+int isValidUser(char *username, char *password, char *validUserList) {
+	char userReceived[1000];
+	
+	char tempList[1000];
+	bzero(tempList, sizeof(tempList));
+	strcpy(tempList, validUserList);
+	tempList[strlen(tempList)] = '\0';
+
+    bzero(userReceived, sizeof(userReceived));
+
+    strcpy(userReceived, username);
+    strcat(userReceived, password);
+    char * data;
+
+    char *tokkk = strtok(tempList, ":");
+    while (1) {
+    	if (tokkk != NULL) {
+    		if (strcmp (tokkk, userReceived) == 0) {
+    			printf("User is valid.\n");
+    			return 1;
+    		}
+    	} else {
+    		return 0;
+    	}
+    	tokkk = strtok(NULL, ":");
+	}
+}
+
+
+int writeFile(char *fileName, char *dir, char *data, int size) {
+	FILE *file;
+	char fileNameW[50];
+	bzero(fileNameW, sizeof(fileNameW));
+
+	strcpy(fileNameW, dir);
+	strcat(fileNameW, fileName);
+	printf("fileName:%s\tdir:%s\n", fileName, dir);
+
+	file = fopen(fileNameW,"wb");
+	
+	int fileSize = fwrite(data , sizeof(unsigned char), size, file);
+
+	if(fileSize < 0)
+    {
+    	printf("Error writting file\n");
+        exit(1);
+    }
+    printf("File Write Successful for:  %s\n", fileNameW);
+    fclose(file);
+}
+
 int main (int argc, char **argv)
 {
 	char users[2000];
 	bzero(users, sizeof(users));
 
-	getDefaultFileName(argv[1], users);
+	char defaultDir[100];
+	bzero(defaultDir, sizeof(defaultDir));
+	strcpy(defaultDir, argv[1]);
+	
+	if (defaultDir[strlen(defaultDir) - 1] != '/') {
+		defaultDir[strlen(defaultDir)] = '/';	
+	}
+	defaultDir[strlen(defaultDir)] = '\0';
+
+	getDefaultFileName("dfs.conf", users);
 	printf("%s\n\n", users);
 
 	int listenfd, connfd, n;
@@ -78,10 +142,9 @@ int main (int argc, char **argv)
 	 //Create a socket for the soclet
 	 //If sockfd<0 there was an error in the creation of the socket
 	if ((listenfd = socket (AF_INET, SOCK_STREAM, 0)) <0) {
-		    perror("Problem in creating the socket");
-			exit(2);
+	    perror("Problem in creating the socket");
+		exit(2);
  	}
-
 
 	//preparation of the socket address
 	servaddr.sin_family = AF_INET;
@@ -113,20 +176,34 @@ int main (int argc, char **argv)
 			//close listening socket
 			close (listenfd);
 			remote_length = sizeof(cliaddr);
-			struct packet client_pack;
+			struct packet clientPacket;
 
 			while (1) {
-				if (recvfrom(connfd, &client_pack, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, &remote_length) < 0)
+				printf("\n---------------------------------------\n");
+				
+				if (recvfrom(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, &remote_length) < 0)
 			    {
 			    	printf("%s\n", "Read error");
 			    	break;
 			    }
-
-			    printf("Username Received: %s\n", client_pack.username);
-			    printf("password Received: %s\n", client_pack.password);
+			    printf("***Received***\n");
+			    printf("Username: %s\n", clientPacket.username);
+			    printf("password: %s\n", clientPacket.password);
+			    printf("FileName: %s\n", clientPacket.firstFileName);
+			    printf("FileSize: %d\n", clientPacket.firstFileSize);
 			    
-			    strcpy(client_pack.message, "Successful");
-			    nbytes = sendto(connfd, &client_pack, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+			    int validUser = isValidUser(clientPacket.username, clientPacket.password, users);
+			    //printf("UserList: %s\n", users);
+			    if (validUser == 1) {
+			    	writeFile(clientPacket.firstFileName, defaultDir, clientPacket.firstFile, clientPacket.firstFileSize);
+			    	strcpy(clientPacket.message, "Successful\n");
+			    } else {
+			    	printf("User is Invalid.\n");
+			    	strcpy(clientPacket.message, "Invalid User\n");
+			    }
+
+			    
+			    nbytes = sendto(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 				if (nbytes < 0){
 					printf("Error in sendto\n");
 				}

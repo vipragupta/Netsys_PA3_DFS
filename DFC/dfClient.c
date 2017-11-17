@@ -1,3 +1,6 @@
+//			gcc dfClient.c -w -o dfc -lcrypto -lssl
+//			./dfc Client_2/dfc.conf
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -46,56 +49,65 @@ void getIpandPort(char *str, char *ip, char *port) {
 
 
 //This function parses the dfc.conf to find the configurations.
-void getDefaultFileName(char *filename, char *dfs1, char *dfs2, char *dfs3, char *dfs4, char *user, char *pwd) {
+int getDefaultFileName(char *filename, char *defaultPath, char *dfs1, char *dfs2, char *dfs3, char *dfs4, char *user, char *pwd) {
 	FILE *file;
 	file = fopen(filename, "r");
 	char data[FILEBUFFERSIZE];
 	bzero(data, sizeof(data));
 	int i = 0;
 
+	char *filePath = strtok(filename, "/");
+
+	strncpy(defaultPath, filePath, strlen(filePath));
+	strcat(defaultPath, "/");
+	defaultPath[strlen(defaultPath)] = '\0';
+
     if (file) {
-			 while(fgets(data, sizeof(data), file)) {
-				 if (i < 4) {
-				     char *tok = strtok(data, " ");
-				     if (tok != NULL) {
-				       char *temp = strtok(NULL, " ");
-				       if (strcmp(temp, "DFS1") == 0){
+		while(fgets(data, sizeof(data), file)) {
+			if (i < 4) {
+			    char *tok = strtok(data, " ");
+			    if (tok != NULL) {
+			        char *temp = strtok(NULL, " ");
+			        if (strcmp(temp, "DFS1") == 0){
 				       	char *tempdouble = strtok(NULL, "\n");
 				       	strcpy(dfs1, tempdouble);
 				       	dfs1[strlen(dfs1)] = '\0';
-				       } else if (strcmp(temp, "DFS2") == 0){
+			       	} else if (strcmp(temp, "DFS2") == 0){
 				       	char *tempdouble = strtok(NULL, "\n");
 				       	strcpy(dfs2, tempdouble);
 				       	dfs2[strlen(dfs2)] = '\0';
-				       } else if (strcmp(temp, "DFS3") == 0){
+			       	} else if (strcmp(temp, "DFS3") == 0){
 				       	char *tempdouble = strtok(NULL, "\n");
 				       	strcpy(dfs3, tempdouble);
 				       	dfs3[strlen(dfs3)] = '\0';
-				       } else if (strcmp(temp, "DFS4") == 0){
+			       	} else if (strcmp(temp, "DFS4") == 0){
 				       	char *tempdouble = strtok(NULL, "\n");
 				       	strcpy(dfs4, tempdouble);
 				       	dfs4[strlen(dfs4)] = '\0';
-				       }
-				     }
-				 } else if (i == 4) {
-				   	char *tokk = strtok(data, ":");
-				   	if (tokk != NULL) {
-				   		char *tempp = strtok(NULL, "\n");
-				   		strcpy(user, tempp);
-				       	user[strlen(user)] = '\0';
-				   	}
-				 } else if (i == 5) {
-				   	char *tokkk = strtok(data, ":");
-				   	if (tokkk != NULL) {
-				   		char *temppp = strtok(NULL, "\n");
-				   		strcpy(pwd, temppp);
-				       	pwd[strlen(pwd)] = '\0';
-				   	}
-				 }
-			 	i++;
-			 }
+			       	}
+			    }
+			} else if (i == 4) {
+			   	char *tokk = strtok(data, ":");
+			   	if (tokk != NULL) {
+			   		char *tempp = strtok(NULL, "\n");
+			   		strcpy(user, tempp);
+			       	user[strlen(user)] = '\0';
+			   	}
+			 } else if (i == 5) {
+			   	char *tokkk = strtok(data, ":");
+			   	if (tokkk != NULL) {
+			   		char *temppp = strtok(NULL, "\n");
+			   		strcpy(pwd, temppp);
+			       	pwd[strlen(pwd)] = '\0';
+			   	}
+			}
+		 	i++;
+		}
+		fclose(file); 
+		return 1;
     } else {
     	printf("File Open Failed for *dfc.conf*\n");
+    	return 0;
     }
 
     // printf("**dfs1:%s:\n", dfs1);
@@ -104,7 +116,6 @@ void getDefaultFileName(char *filename, char *dfs1, char *dfs2, char *dfs3, char
 	// printf("**dfs4:%s:\n", dfs4);
 	// printf("**username:%s:\n", user);
 	// printf("**password:%s:\n", pwd);
-    fclose(file); 
 }
 
 //Gives the size of the file in bytes.
@@ -175,11 +186,14 @@ long int getMd5Sum(char *fileName) {
       return -1;
     }
 
+    printf("Inside Md5 for file: %s\n", fileName);
     size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
 	fseek(file, 0, SEEK_SET);
 
 	unsigned char c[64];
+	bzero(c, sizeof(c));
 	unsigned char c_new[32];
+	bzero(c_new, sizeof(c_new));
 
 	bzero(c, sizeof(c));
 	MD5_CTX mdContext;
@@ -192,12 +206,12 @@ long int getMd5Sum(char *fileName) {
 	
 	for(int i = 0; i < strlen(c); i++) {
 		char temp[3];
-			 sprintf(temp, "%0x", c[i]);
-			 strcat(c_new, temp);
+		sprintf(temp, "%0x", c[i]);
+		printf("%s", temp);
+		strcat(c_new, temp);
 	}
 
-	char *somethin1g;
-	printf("MD5 Hash: %s\n", c_new);
+	printf("\n%s\n", c_new);
 	
 	long md51 = getDecimalValue(c_new);
 
@@ -317,6 +331,7 @@ int main (int argc, char **argv)
 	char dfs2[20];
 	char dfs3[20];
 	char dfs4[20];
+	char defaultPath[30];
 
 	char dfs1Ip[20];
 	char dfs2Ip[20];
@@ -331,21 +346,34 @@ int main (int argc, char **argv)
 	char username[20];
 	char password[20];
 
-	getDefaultFileName(argv[1], dfs1, dfs2, dfs3, dfs4, username, password);
+	int fileParsed = getDefaultFileName(argv[1], defaultPath, dfs1, dfs2, dfs3, dfs4, username, password);
+	
+	if (fileParsed == 0) {
+		return 0;
+	}
 	// printf("dfs1:%s:\n", dfs1);
 	// printf("dfs2:%s:\n", dfs2);
 	// printf("dfs3:%s:\n", dfs3);
 	// printf("dfs4:%s:\n", dfs4);
 	printf("username:%s:\n", username);
-	printf("password:%s:\n\n", password);
+	printf("password:%s:\n", password);
+	printf("defaultPath:%s:\n\n", defaultPath);
 
-	/*
+	
 	char fileName[50];
     bzero(fileName, sizeof(fileName));
-    strcpy(fileName, "./Client_1/foo1");
+    strcpy(fileName, "foo1.txt");
 
-    long md5 = getMd5Sum(fileName);
+    char absoluteFile[100];
+    bzero(absoluteFile, sizeof(absoluteFile));
+    strcpy(absoluteFile, defaultPath);
+    strcat(absoluteFile, fileName);
+
+    printf("absoluteFile: %s\n", absoluteFile);
+
+    long md5 = getMd5Sum(absoluteFile);
 	printf("MD5: %ld\n\n", md5);
+
 
 	char encryptedDataOne[FILEBUFFERSIZE];
 	bzero(encryptedDataOne, sizeof(encryptedDataOne));
@@ -356,13 +384,13 @@ int main (int argc, char **argv)
 	char encryptedDataFour[FILEBUFFERSIZE];
 	bzero(encryptedDataFour, sizeof(encryptedDataFour));
 
-	size_t chunkSizeOne = getFileChunk(encryptedDataOne, fileName, 1);
-	size_t chunkSizeTwo = getFileChunk(encryptedDataTwo, fileName, 2);
-	size_t chunkSizeThree = getFileChunk(encryptedDataThree, fileName, 3);
-	size_t chunkSizeFour = getFileChunk(encryptedDataFour, fileName, 4);
+	size_t chunkSizeOne = getFileChunk(encryptedDataOne, absoluteFile, 1);
+	size_t chunkSizeTwo = getFileChunk(encryptedDataTwo, absoluteFile, 2);
+	size_t chunkSizeThree = getFileChunk(encryptedDataThree, absoluteFile, 3);
+	size_t chunkSizeFour = getFileChunk(encryptedDataFour, absoluteFile, 4);
 	
 
-
+/*
 	DecryptDataAndWrite(encryptedDataOne, fileName, "_Final", chunkSizeOne, 0);
 	DecryptDataAndWrite(encryptedDataTwo, fileName, "_Final", chunkSizeTwo, 1);
 	DecryptDataAndWrite(encryptedDataThree, fileName, "_Final", chunkSizeThree, 1);
@@ -458,13 +486,27 @@ int main (int argc, char **argv)
 	// }
 	while (fgets(sendline, MAXLINE, stdin) != NULL) {
 
-
 		struct packet pack;
 		int nbytes;
 		unsigned int server_length = sizeof(servaddr1);
-
+		char chunkName[100];
+		bzero(chunkName, sizeof(chunkName));
+		strcpy(chunkName, ".");
+		strcat(chunkName, fileName);
+		strcat(chunkName, ".1");
+		strcpy(pack.firstFileName, chunkName);
+		
+		pack.firstFileSize = chunkSizeOne;
 		strcpy(pack.username, username);
 		strcpy(pack.password, password);
+		
+		bzero(pack.firstFile, sizeof(pack.firstFile));
+		memcpy(pack.firstFile, encryptedDataOne, chunkSizeOne);
+		
+		//printf("Struct Sent: %s\t%s\t%s\t%d\n", pack.username, pack.password, pack.firstFileName, pack.firstFileSize);
+		//printf("encryptedDataOne: %s\n", encryptedDataOne);
+		//printf("pack.firstFile: %s\n", pack.firstFile);
+		
 		nbytes = sendto(sock1, &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
 
 		if (nbytes < 0){
@@ -478,10 +520,14 @@ int main (int argc, char **argv)
 		if (nbytes > 0) {
 			printf("%s", "Server Sent:");
 			fputs(receivedPacket.message, stdout);
+			
 		} else {
 			printf("Negative bytes received.\n");
 		}
 
+		printf("username:%s\n", username);
+		printf("password:%s\n", password);
+		printf("\n-------------------------------\n");
 /*
 
 		send(sock1, sendline, strlen(sendline), 0);

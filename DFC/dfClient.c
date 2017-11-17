@@ -17,6 +17,10 @@
 #define FILEBUFFERSIZE 1048576
 #define MAXLINE 4096
 char *key = "vipra";
+static const struct packet EmptyStruct;
+
+int firstChunkMap[4][4] = {{1,2,3,4}, {4,1,2,3}, {3,4,1,2}, {2,3,4,1}};
+int secondChunkMap[4][4] = {{2,3,4,1}, {1,2,3,4}, {4,1,2,3}, {3,4,1,2}};
 
 //The packet struct that will be passed between the client and servers.
 struct packet
@@ -299,27 +303,19 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 	fclose(file);
 	
 	printf("Chunk:%d     FileSize:%d\t\tchunkSize:%d\nfileBuffer:%s:\n\n\n", chunkNum, file_size, chunkSize, fileBuffer);
-
 	getEncryptedData(fileBuffer, encryptedData, byte_read);
-	//printf("byteRead:%d\t\tEncryptData: %s\n\n", byte_read, encryptedData);
-	
-	char fileChunkName[50];
-	bzero(fileChunkName, sizeof(fileChunkName));
-	strcpy(fileChunkName, fileName);
-	strcat(fileChunkName, "_");
-	fileChunkName[sizeof(fileChunkName)] = (char) chunkNum;
-	//strcat(fileChunkName, (char)chunkNum);
 
-	//writeFile(fileChunkName, "", encryptedData, byte_read, 1);
-	
 	return chunkSize;
 }
 
-void getChunkName(char *chunkName, char *fileName, char *chunkNum) {
+void getChunkName(char *chunkName, char *fileName, int chunkNum) {
+	char ch[1];
+	sprintf(ch, "%d", chunkNum);
 	bzero(chunkName, sizeof(chunkName));
 	strcpy(chunkName, ".");
 	strcat(chunkName, fileName);
-	strcat(chunkName, chunkNum);
+	strcat(chunkName, ".");
+	strcat(chunkName, ch);
 }
 
 void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFileName, int size, int append) {
@@ -331,10 +327,22 @@ void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFi
 	writeFile(fileName, additionalFileName, decryptedData, size, append);
 }
 
-void constructPacketToSend(struct packet *pack, char *username, char *password, char *fileName, char *chunkNum1, size_t chunkSize1, char *data1, char *chunkNum2, size_t chunkSize2, char *data2) {
+void constructPacketToSend(struct packet *pack, char *username, char *password, char *fileName, int chunkNum1, size_t chunkSize1, char *data1, int chunkNum2, size_t chunkSize2, char *data2) {
+
+
+	// printf("u:%s\n", username);
+	// printf("p:%s\n", password);
+	// printf("f:%s\n", fileName);
+	
+	// printf("cn1:%d\n", chunkNum1);
+	// printf("cs1:%d\n", chunkSize1);
+	// printf("d1:%s\n", data1);
+
+	// printf("cn2:%d\n", chunkNum2);
+	// printf("cs2:%d\n", chunkSize2);
+	// printf("d2:%s\n", data2);
 
 	char chunkName[100];
-
 	strcpy(pack->username, username);
 	strcpy(pack->password, password);
 	
@@ -350,6 +358,20 @@ void constructPacketToSend(struct packet *pack, char *username, char *password, 
 	bzero(pack->secondFile, sizeof(pack->secondFile));
 	memcpy(pack->secondFile, data2, chunkSize2);
 }
+
+
+
+int getChunkToSend(int serverNum, long md5, int itemNum) {
+	int modVal = md5 % 4;
+	if (itemNum == 1) {
+		return firstChunkMap[modVal][serverNum] - 1;
+	} else if (itemNum == 2) {
+		return secondChunkMap[modVal][serverNum] - 1;
+	} else {
+		return -1;
+	}
+}
+
 
 int main (int argc, char **argv)
 {
@@ -375,6 +397,8 @@ int main (int argc, char **argv)
 
 	int fileParsed = getDefaultFileName(argv[1], defaultPath, dfs1, dfs2, dfs3, dfs4, username, password);
 	
+	static const struct packet EmptyStruct;
+
 	if (fileParsed == 0) {
 		return 0;
 	}
@@ -401,21 +425,16 @@ int main (int argc, char **argv)
     long md5 = getMd5Sum(absoluteFile);
 	printf("MD5: %ld\n\n", md5);
 
+	char *something[4];
+	something[0] = calloc(FILEBUFFERSIZE, sizeof(char));
+	something[1] = calloc(FILEBUFFERSIZE, sizeof(char));
+	something[2] = calloc(FILEBUFFERSIZE, sizeof(char));
+	something[3] = calloc(FILEBUFFERSIZE, sizeof(char));
 
-	char encryptedDataOne[FILEBUFFERSIZE];
-	bzero(encryptedDataOne, sizeof(encryptedDataOne));
-	char encryptedDataTwo[FILEBUFFERSIZE];
-	bzero(encryptedDataTwo, sizeof(encryptedDataTwo));
-	char encryptedDataThree[FILEBUFFERSIZE];
-	bzero(encryptedDataThree, sizeof(encryptedDataThree));
-	char encryptedDataFour[FILEBUFFERSIZE];
-	bzero(encryptedDataFour, sizeof(encryptedDataFour));
-
-	size_t chunkSizeOne = getFileChunk(encryptedDataOne, absoluteFile, 1);
-	size_t chunkSizeTwo = getFileChunk(encryptedDataTwo, absoluteFile, 2);
-	size_t chunkSizeThree = getFileChunk(encryptedDataThree, absoluteFile, 3);
-	size_t chunkSizeFour = getFileChunk(encryptedDataFour, absoluteFile, 4);
-	
+	size_t chunkSize[4];
+	for (int i = 0; i < 4; i++) {
+		chunkSize[i] = getFileChunk(something[i], absoluteFile, i + 1);
+	}
 
 /*
 	DecryptDataAndWrite(encryptedDataOne, fileName, "_Final", chunkSizeOne, 0);
@@ -423,42 +442,26 @@ int main (int argc, char **argv)
 	DecryptDataAndWrite(encryptedDataThree, fileName, "_Final", chunkSizeThree, 1);
 	DecryptDataAndWrite(encryptedDataFour, fileName, "_Final", chunkSizeFour, 1);
 */
-	int sock1, sock2, sock3, sock4;
-	struct sockaddr_in servaddr1;
-	struct sockaddr_in servaddr2;
-	struct sockaddr_in servaddr3;
-	struct sockaddr_in servaddr4;
+	int sock[4];
+	struct sockaddr_in servaddr[4];
+	unsigned int serverLength[4];
+
 	char sendline[MAXLINE];
-	char recvline1[MAXLINE];
-	char recvline2[MAXLINE];
-	char recvline3[MAXLINE];
-	char recvline4[MAXLINE];
+	char recvline[MAXLINE];
 
 	//Create a socket for the client
 	//If sockfd<0 there was an error in the creation of the socket
-	if ((sock1 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-		perror("Problem in creating the socket for Server 1.");
-		exit(2);
+	for (int i = 0; i < 4; i++) {
+		if ((sock[i] = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+			printf("Problem in creating the socket for Server %d.\n", i);
+			exit(2);
+		}
 	}
-	if ((sock2 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-		perror("Problem in creating the socket for Server 2.");
-		exit(2);
-	}
-	if ((sock3 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-		perror("Problem in creating the socket for Server 3.");
-		exit(2);
-	}
-	if ((sock4 = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
-		perror("Problem in creating the socket for Server 4.");
-		exit(2);
-	}
-
 
 	//Creation of the socket
-	memset(&servaddr1, 0, sizeof(servaddr1));
-	memset(&servaddr2, 0, sizeof(servaddr2));
-	memset(&servaddr3, 0, sizeof(servaddr3));
-	memset(&servaddr4, 0, sizeof(servaddr4));
+	for (int i = 0; i < 4; i++) {
+		memset(&servaddr[i], 0, sizeof(servaddr[i]));
+	}
 
 	getIpandPort(dfs1, dfs1Ip, dfs1Port);
 	getIpandPort(dfs2, dfs2Ip, dfs2Port);
@@ -470,69 +473,74 @@ int main (int argc, char **argv)
 	printf("3. IP:%s\t\tPort:%s\n", dfs3Ip, dfs3Port);
 	printf("4. IP:%s\t\tPort:%s\n", dfs4Ip, dfs4Port);
 
-	servaddr1.sin_family = AF_INET;
-	servaddr1.sin_addr.s_addr= inet_addr(dfs1Ip);
-	servaddr1.sin_port =  htons(atoi(dfs1Port));  //convert to big-endian order
+	servaddr[0].sin_family = AF_INET;
+	servaddr[0].sin_addr.s_addr= inet_addr(dfs1Ip);
+	servaddr[0].sin_port =  htons(atoi(dfs1Port));  //convert to big-endian order
 
-	servaddr2.sin_family = AF_INET;
-	servaddr2.sin_addr.s_addr= inet_addr(dfs2Ip);
-	servaddr2.sin_port =  htons(atoi(dfs2Port));  //convert to big-endian order
+	servaddr[1].sin_family = AF_INET;
+	servaddr[1].sin_addr.s_addr= inet_addr(dfs2Ip);
+	servaddr[1].sin_port =  htons(atoi(dfs2Port));  //convert to big-endian order
 
-	servaddr3.sin_family = AF_INET;
-	servaddr3.sin_addr.s_addr= inet_addr(dfs3Ip);
-	servaddr3.sin_port =  htons(atoi(dfs3Port));  //convert to big-endian order
+	servaddr[2].sin_family = AF_INET;
+	servaddr[2].sin_addr.s_addr= inet_addr(dfs3Ip);
+	servaddr[2].sin_port =  htons(atoi(dfs3Port));  //convert to big-endian order
 
-	servaddr4.sin_family = AF_INET;
-	servaddr4.sin_addr.s_addr= inet_addr(dfs4Ip);
-	servaddr4.sin_port =  htons(atoi(dfs4Port));  //convert to big-endian order
+	servaddr[3].sin_family = AF_INET;
+	servaddr[3].sin_addr.s_addr= inet_addr(dfs4Ip);
+	servaddr[3].sin_port =  htons(atoi(dfs4Port));  //convert to big-endian order
 
 	//Connection of the client to the socket
-	if (connect(sock1, (struct sockaddr *) &servaddr1, sizeof(servaddr1)) < 0) {
-		perror("Problem in connecting to the server 1");
-		//exit(3);
-	} else {
-		printf("Connection Successful for Server 1.\n");
-	}
-	if (connect(sock2, (struct sockaddr *) &servaddr2, sizeof(servaddr2)) < 0) {
-		perror("Problem in connecting to the server 2");
-		//exit(3);
-	} else {
-		printf("Connection Successful for Server 2.\n");
-	}
-	if (connect(sock3, (struct sockaddr *) &servaddr3, sizeof(servaddr3)) < 0) {
-		perror("Problem in connecting to the server 3");
-		//exit(3);
-	} else {
-		printf("Connection Successful for Server 3.\n");
-	}
-	if (connect(sock4, (struct sockaddr *) &servaddr4, sizeof(servaddr4)) < 0) {
-		perror("Problem in connecting to the server 4");
-		//exit(3);
-	} else {
-		printf("Connection Successful for Server 4.\n");
+	for (int i = 0; i < 4; i++) {
+		if (connect(sock[i], (struct sockaddr *) &servaddr[i], sizeof(servaddr[i])) < 0) {
+			printf("Problem in connecting to the server %d.\n", i);
+			//exit(3);
+		} else {
+			printf("Connection Successful for Server %d.\n", i);
+		}
 	}
 
-	unsigned int serverLength1 = sizeof(servaddr1);
-	unsigned int serverLength2 = sizeof(servaddr2);
-	unsigned int serverLength3 = sizeof(servaddr3);
-	unsigned int serverLength4 = sizeof(servaddr4);
+	
+	for (int i = 0; i < 4; i++) {
+		serverLength[i] = sizeof(servaddr[i]);
+	}
 	
 	while (fgets(sendline, MAXLINE, stdin) != NULL) {
 
 		struct packet pack;
 		int nbytes;
 		
-		constructPacketToSend(&pack, username, password, fileName, ".1", chunkSizeOne, encryptedDataOne, ".2", chunkSizeTwo, encryptedDataTwo);
-		
-		nbytes = sendto(sock1, &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr1, sizeof(servaddr1));
+		int firstChunkNum = getChunkToSend(0, md5, 1);
+		int secondChunkNum = getChunkToSend(0, md5, 2);
 
+		printf("firstChunkNum:%d\n", firstChunkNum);
+		printf("secondChunkNum:%d\n", secondChunkNum);
+
+		pack = EmptyStruct;
+
+		// printf("HEllo\n");
+		// printf("chunkSize1: %d\n", chunkSize[firstChunkNum]);
+		// printf("something1: %s\n", something[firstChunkNum]);
+
+		// printf("chunkSize2: %d\n", chunkSize[secondChunkNum]);
+		// printf("something2: %s\n", something[secondChunkNum]);
+
+		constructPacketToSend(&pack, username, password, fileName, firstChunkNum + 1, chunkSize[firstChunkNum], something[firstChunkNum], secondChunkNum + 1, chunkSize[secondChunkNum], something[secondChunkNum]);
+		// printf("pack.username: %s\n", pack.username);
+		// printf("pack.password: %s\n", pack.password);
+		// printf("pack.firstFileName: %s\n", pack.firstFileName);
+		
+		// printf("pack.firstFileSize: %d\n", pack.firstFileSize);
+		// printf("pack.secondFileName: %s\n", pack.secondFileName);
+		// printf("pack.secondFileSize: %d\n", pack.secondFileSize);
+
+
+		nbytes = sendto(sock[0], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[0], sizeof(servaddr[0]));
 		if (nbytes < 0){
 			printf("Error in sendto\n");
 		}
-
 		printf("Waiting for server 1 ack..\n");
 		struct packet receivedPacket;
-		nbytes = recvfrom(sock1, &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr1, &serverLength1);  
+		nbytes = recvfrom(sock[0], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[0], &serverLength[0]);  
 		
 		if (nbytes > 0) {
 			printf("%s", "Server 1 Sent:");
@@ -541,8 +549,6 @@ int main (int argc, char **argv)
 		} else {
 			printf("Negative bytes received.\n");
 		}
-
-
 
 		printf("username:%s\n", username);
 		printf("password:%s\n", password);

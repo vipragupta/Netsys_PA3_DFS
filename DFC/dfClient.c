@@ -211,7 +211,7 @@ long int getMd5Sum(char *fileName) {
 	for(int i = 0; i < strlen(c); i++) {
 		char temp[3];
 		sprintf(temp, "%0x", c[i]);
-		printf("%s", temp);
+		//printf("%s", temp);
 		strcat(c_new, temp);
 	}
 
@@ -410,32 +410,6 @@ int main (int argc, char **argv)
 	printf("password:%s:\n", password);
 	printf("defaultPath:%s:\n\n", defaultPath);
 
-	
-	char fileName[50];
-    bzero(fileName, sizeof(fileName));
-    strcpy(fileName, "foo3");
-
-    char absoluteFile[100];
-    bzero(absoluteFile, sizeof(absoluteFile));
-    strcpy(absoluteFile, defaultPath);
-    strcat(absoluteFile, fileName);
-
-    printf("absoluteFile: %s\n", absoluteFile);
-
-    long md5 = getMd5Sum(absoluteFile);
-	printf("MD5: %ld\n\n", md5);
-
-	char *something[4];
-	something[0] = calloc(FILEBUFFERSIZE, sizeof(char));
-	something[1] = calloc(FILEBUFFERSIZE, sizeof(char));
-	something[2] = calloc(FILEBUFFERSIZE, sizeof(char));
-	something[3] = calloc(FILEBUFFERSIZE, sizeof(char));
-
-	size_t chunkSize[4];
-	for (int i = 0; i < 4; i++) {
-		chunkSize[i] = getFileChunk(something[i], absoluteFile, i + 1);
-	}
-
 /*
 	DecryptDataAndWrite(encryptedDataOne, fileName, "_Final", chunkSizeOne, 0);
 	DecryptDataAndWrite(encryptedDataTwo, fileName, "_Final", chunkSizeTwo, 1);
@@ -448,6 +422,7 @@ int main (int argc, char **argv)
 
 	char sendline[MAXLINE];
 	char recvline[MAXLINE];
+	char *fileName;
 
 	//Create a socket for the client
 	//If sockfd<0 there was an error in the creation of the socket
@@ -504,7 +479,69 @@ int main (int argc, char **argv)
 		serverLength[i] = sizeof(servaddr[i]);
 	}
 	
-	while (fgets(sendline, MAXLINE, stdin) != NULL) {
+	while (1) {
+
+
+		bzero(sendline, sizeof(sendline));
+		printf("\n*********************** MENU ***********************\n");
+		printf(". put [FileName]\n. get [FileName]\n. mkdir [subfolder]\n. list\n. exit\n\n");
+		printf("Enter the operation you want to perform: ");
+		
+		if(fgets(sendline, MAXLINE, stdin) == NULL) {
+			printf("Please enter a valid command.\n");
+			continue;
+		}
+
+		char *option;
+		option = strtok(sendline, "\n");
+		printf("--------------------------------------\n");
+		printf("You selected:%s:\n\n", option);
+
+
+		//bzero(fileName, sizeof(fileName));
+		char *command;
+		//char *filename;
+		command = strtok(option, " ");
+		printf("command: %s\n", command);
+		//Move on only if user has entered something.
+		if (command && command != NULL) {
+			if (strcmp(command, "get") == 0 || strcmp(command, "put") == 0 || strcmp(command, "mkdir") == 0 ) {
+				fileName = strtok(NULL, "");
+				if (!fileName) {
+					printf("No File Name Entered. Please try again.\n");
+					continue;
+				}
+			}
+		} else {
+			continue;
+		}
+
+		printf("FileName:%s\n", fileName);
+		
+		char absoluteFile[100];
+	    bzero(absoluteFile, sizeof(absoluteFile));
+	    strcpy(absoluteFile, defaultPath);
+	    strcat(absoluteFile, fileName);
+
+	    printf("absoluteFile: %s\n", absoluteFile);
+
+	    long md5 = getMd5Sum(absoluteFile);
+		printf("MD5: %ld\n\n", md5);
+
+		if (md5 == -1) {
+			printf("File is invalid. Please try again.\n");
+			continue;
+		}
+		char *something[4];
+		something[0] = calloc(FILEBUFFERSIZE, sizeof(char));
+		something[1] = calloc(FILEBUFFERSIZE, sizeof(char));
+		something[2] = calloc(FILEBUFFERSIZE, sizeof(char));
+		something[3] = calloc(FILEBUFFERSIZE, sizeof(char));
+
+		size_t chunkSize[4];
+		for (int i = 0; i < 4; i++) {
+			chunkSize[i] = getFileChunk(something[i], absoluteFile, i + 1);
+		}
 		printf("-------------------------------------------\n\n");
 		struct packet pack;
 		int nbytes;

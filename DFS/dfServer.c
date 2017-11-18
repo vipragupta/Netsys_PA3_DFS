@@ -78,7 +78,7 @@ int isValidUser(char *userReceived, char *validUserList) {
     while (1) {
     	if (tokkk != NULL) {
     		if (strcmp (tokkk, userReceived) == 0) {
-    			printf("\nUser is valid.\n");
+    			//printf("\nUser is valid.\n");
     			return 1;
     		}
     	} else {
@@ -166,7 +166,7 @@ int main (int argc, char **argv)
 		printf("%s\n","Received request...");
 
 		if ( (childpid = fork ()) == 0 ) {//if it’s 0, it’s child process
-
+			printf("********************************************************\n");
 			printf ("%s\n","Child created for dealing with client requests");
 
 			//close listening socket

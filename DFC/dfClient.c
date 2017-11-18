@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <openssl/md5.h>
 
-#define FILEPACKETSIZE 5*1024	
+#define FILEPACKETSIZE 50*1024	
 #define FILEBUFFERSIZE 1048576
 #define MAXLINE 4096
 char *key = "vipra";
@@ -413,7 +413,7 @@ int main (int argc, char **argv)
 	
 	char fileName[50];
     bzero(fileName, sizeof(fileName));
-    strcpy(fileName, "foo1.txt");
+    strcpy(fileName, "foo3");
 
     char absoluteFile[100];
     bzero(absoluteFile, sizeof(absoluteFile));
@@ -505,7 +505,7 @@ int main (int argc, char **argv)
 	}
 	
 	while (fgets(sendline, MAXLINE, stdin) != NULL) {
-
+		printf("-------------------------------------------\n\n");
 		struct packet pack;
 		int nbytes;
 		
@@ -525,13 +525,13 @@ int main (int argc, char **argv)
 		// printf("something2: %s\n", something[secondChunkNum]);
 
 		constructPacketToSend(&pack, username, password, fileName, firstChunkNum + 1, chunkSize[firstChunkNum], something[firstChunkNum], secondChunkNum + 1, chunkSize[secondChunkNum], something[secondChunkNum]);
-		// printf("pack.username: %s\n", pack.username);
-		// printf("pack.password: %s\n", pack.password);
-		// printf("pack.firstFileName: %s\n", pack.firstFileName);
+		printf("pack.username: %s\n", pack.username);
+		printf("pack.password: %s\n", pack.password);
+		printf("pack.firstFileName: %s\n", pack.firstFileName);
 		
-		// printf("pack.firstFileSize: %d\n", pack.firstFileSize);
-		// printf("pack.secondFileName: %s\n", pack.secondFileName);
-		// printf("pack.secondFileSize: %d\n", pack.secondFileSize);
+		printf("pack.firstFileSize: %d\n", pack.firstFileSize);
+		printf("pack.secondFileName: %s\n", pack.secondFileName);
+		printf("pack.secondFileSize: %d\n", pack.secondFileSize);
 
 
 		nbytes = sendto(sock[0], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[0], sizeof(servaddr[0]));

@@ -15,7 +15,7 @@
 #include <dirent.h>
 
 
-#define FILEPACKETSIZE 5*1024	
+#define FILEPACKETSIZE 50*1024	
 #define MAXLINE 4096
 #define LISTENQ 8 /*maximum number of client connections*/
 

@@ -111,6 +111,64 @@ int writeFile(char *fileName, char *dir, char *data, int size) {
     fclose(file);
 }
 
+//Gives the size of the file in bytes.
+size_t getFileSize(FILE *file) {
+	fseek(file, 0, SEEK_END);
+  	size_t file_size = ftell(file);
+  	return file_size;
+}
+
+size_t getFileChunk(char *fileBuffer, char *directory, char *username, char *fileName, char *chunkName, int chunkNum) {
+
+
+	//printf("directory: %s\tusername: %s\tfileName: %s\tchunkName: %s\tchunkNum: %d\n", directory, username, fileName, chunkName, chunkNum);
+
+	FILE *file;
+	
+	size_t chunkSize;
+	int byte_read;
+
+    char ch[1];
+	sprintf(ch, "%d", chunkNum);
+    bzero(chunkName, sizeof(chunkName));
+    
+    strcpy(chunkName, directory);
+    strcat(chunkName, username);
+    strcat(chunkName, "/");
+    strcat(chunkName, ".");
+    strcat(chunkName, fileName);
+    strcat(chunkName, ".");
+    strcat(chunkName, ch);
+
+    printf("chunkName: %s\n", chunkName);
+
+    file = fopen(chunkName, "rb");
+
+	if(file == NULL)
+    {
+      //printf("Given File Name \"%s\" does not exist.\n", chunkName);
+      return -1;
+    }
+
+    size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
+	fseek(file, 0, SEEK_SET);
+
+	int i = 1;
+	while (1) {
+		bzero(fileBuffer, sizeof(fileBuffer));
+		byte_read = fread(fileBuffer, 1, file_size, file);
+		if (i == chunkNum) {
+			break;
+		}
+		i ++;
+	}
+
+	fclose(file);
+	
+	printf("Chunk:%d     FileSize:%lu\n\n", chunkNum, file_size);
+	return file_size;
+}
+
 int main (int argc, char **argv)
 {
 	char users[2000];
@@ -241,7 +299,61 @@ int main (int argc, char **argv)
 				    	}
 				    	closedir (dir);
 			    	} else if (strcmp(clientPacket.command, "get") == 0) {
-			    		printf("Inside Get Command\n");
+			    		printf("Inside Get Command\n\n");
+			    		int isOne = 0;
+			    		int addedFiles = 0;
+
+			    		char getFileName[50];
+		    			bzero(getFileName, sizeof(getFileName));
+		    			strcpy(getFileName, clientPacket.firstFileName);
+		    			getFileName[strlen(getFileName)] = '\0';
+
+			    		for (int chunkNum = 0; chunkNum < 4; chunkNum++) {
+				    		char chunkName[50];
+				    		bzero(chunkName, sizeof(chunkName));
+				    		
+				    		char fileBuffer[FILEPACKETSIZE];
+				    		bzero(fileBuffer, sizeof(fileBuffer));
+
+				    		size_t chunkSize = getFileChunk(fileBuffer, defaultDir, clientPacket.username, getFileName, chunkName, chunkNum + 1);
+				    		if (chunkSize != -1) {
+				    			if (isOne == 0) {
+				    				bzero(clientPacket.firstFileName, sizeof(clientPacket.firstFileName));
+				    				bzero(clientPacket.firstFile, sizeof(clientPacket.firstFile));
+				    				clientPacket.firstFileSize = chunkSize;
+				    				strcpy(clientPacket.firstFileName, chunkName);
+				    				memcpy(clientPacket.firstFile, fileBuffer, chunkSize);
+				    				isOne = 1;
+				    			} else {
+				    				bzero(clientPacket.secondFileName, sizeof(clientPacket.secondFileName));
+				    				bzero(clientPacket.secondFile, sizeof(clientPacket.secondFile));
+				    				clientPacket.secondFileSize = chunkSize;
+				    				strcpy(clientPacket.secondFileName, chunkName);
+				    				memcpy(clientPacket.secondFile, fileBuffer, chunkSize);
+				    			}
+				    			addedFiles++;
+				    		}
+
+			    		}
+			    		if (addedFiles > 0) {
+			    			strcpy(clientPacket.message, "Successful");
+			    			clientPacket.code = 200;
+			    		} else {
+			    			strcpy(clientPacket.message, "Fail");
+			    			clientPacket.code = 500;
+			    		}
+
+			    		printf("\n*********Sending***********\n");
+					    printf("Username:  %s\n", clientPacket.username);
+					    printf("password:  %s\n\n", clientPacket.password);
+					    printf("command:   %s\n", clientPacket.command); 
+					    
+					    printf("FileName1: %s\n", clientPacket.firstFileName);
+					    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);
+					    
+					    printf("FileName2: %s\n", clientPacket.secondFileName);
+					    printf("FileSize2: %d\n\n", clientPacket.secondFileSize);
+
 			    	} else {
 			    		printf("Invalid command.\n");
 			    		strcpy(clientPacket.message, "Invalid Command\n");

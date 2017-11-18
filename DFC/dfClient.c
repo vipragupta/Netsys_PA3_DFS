@@ -438,14 +438,22 @@ int main (int argc, char **argv)
 	servaddr[3].sin_addr.s_addr= inet_addr(dfs4Ip);
 	servaddr[3].sin_port =  htons(atoi(dfs4Port));  //convert to big-endian order
 
+
+	int connectS = 0;
 	//Connection of the client to the socket
 	for (int i = 0; i < 4; i++) {
 		if (connect(sock[i], (struct sockaddr *) &servaddr[i], sizeof(servaddr[i])) < 0) {
 			printf("Problem in connecting to the server %d.\n", i);
+			connectS++;
 			//exit(3);
 		} else {
 			printf("Connection Successful for Server %d.\n", i);
 		}
+	}
+
+	if (connectS > 3) {
+		printf("Problem in connecting with servers.\n");
+		return 0;
 	}
 
 	
@@ -488,7 +496,7 @@ int main (int argc, char **argv)
 			continue;
 		}
 
-		printf("FileName:%s\n", fileName);
+		printf("FileName:%s\n\n", fileName);
 
 		if (strcmp(command, "put") == 0) {
 			char absoluteFile[100];
@@ -556,7 +564,83 @@ int main (int argc, char **argv)
 				}
 			}
 		} else if (strcmp(command, "get") == 0) {
-			printf("Inside Get command\n");
+			int dataIndex = 0;
+			char *chunkFileData[8];
+			char *chunkFileName[8];
+			int chunkFileSize[8];
+
+			for (int x = 0; x < 8; x++) {
+				chunkFileData[x] = calloc(FILEBUFFERSIZE, sizeof(char));
+				chunkFileName[x] = calloc(50, sizeof(char));
+			}
+
+			printf("Inside Get command\n\ns");
+			struct packet pack;
+			
+
+			pack = EmptyStruct;
+
+			strcpy(pack.username, username);
+			strcpy(pack.password, password);
+	
+			strcpy(pack.firstFileName, fileName);
+			pack.firstFileName[strlen(pack.firstFileName)] = '\0';
+
+			strcpy(pack.command, "get");
+			pack.command[strlen(pack.command)] = '\0';
+			printf("pack.username: %s\n", pack.username);
+			printf("pack.password: %s\n", pack.password);
+			
+			printf("pack.firstFileName: %s\n", pack.firstFileName);
+			printf("pack.firstFileSize: %d\n", pack.firstFileSize);
+			
+			printf("pack.secondFileName: %s\n", pack.secondFileName);
+			printf("pack.secondFileSize: %d\n\n", pack.secondFileSize);
+
+
+			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
+
+				int nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
+				
+				if (nbytes < 0){
+					printf("Error in sendto to server %d.\n", serverIndex);
+				}
+				
+				printf("Waiting for server %d ACK..\n", serverIndex);
+				
+				struct packet receivedPacket;
+				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+				
+				if (nbytes > 0) {
+					printf("Server %d Sent\n", serverIndex);
+					printf("Status Code: %d\n", receivedPacket.code);
+					printf("firstFileName: %s\n", receivedPacket.firstFileName);
+					printf("firstFileSize: %d\n", receivedPacket.firstFileSize);
+
+					printf("secondFileName: %s\n", receivedPacket.secondFileName);
+					printf("secondFileName: %d\n", receivedPacket.secondFileSize);
+					printf("\n\n");
+					if (receivedPacket.code == 200) {
+						
+						bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
+						strcpy(chunkFileName[dataIndex] , receivedPacket.firstFileName);
+						chunkFileSize[dataIndex] = receivedPacket.firstFileSize;
+						bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
+						memcpy(chunkFileData[dataIndex], receivedPacket.firstFile, chunkFileSize[dataIndex]);
+						dataIndex++;
+
+						bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
+						strcpy(chunkFileName[dataIndex] , receivedPacket.secondFileName);
+						chunkFileSize[dataIndex] = receivedPacket.secondFileSize;
+						bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
+						memcpy(chunkFileData[dataIndex], receivedPacket.secondFile, chunkFileSize[dataIndex]);
+						dataIndex++;
+					}
+					
+				} else {
+					printf("Negative bytes received from server %d.\n", serverIndex);
+				}
+			}
 		} else {
 			printf("Invalid command.\n");
 		}

@@ -113,13 +113,6 @@ int getDefaultFileName(char *filename, char *defaultPath, char *dfs1, char *dfs2
     	printf("File Open Failed for *dfc.conf*\n");
     	return 0;
     }
-
-    // printf("**dfs1:%s:\n", dfs1);
-	// printf("**dfs2:%s:\n", dfs2);
-	// printf("**dfs3:%s:\n", dfs3);
-	// printf("**dfs4:%s:\n", dfs4);
-	// printf("**username:%s:\n", user);
-	// printf("**password:%s:\n", pwd);
 }
 
 //Gives the size of the file in bytes.
@@ -174,7 +167,6 @@ long getDecimalValue(char *hex) {
 		int product = d * multiplier;
 		product = product % 100;
 		decimal = decimal + product;
-		//printf("decimal: %d\t\tchar: %c\t\td: %d\t\tmultiplier: %d\t\tproduct:%d\t\t\n", decimal, hex[i], d, multiplier, product);
 		index++;
 	}
 	return decimal % 100;
@@ -267,8 +259,12 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 
 	FILE *file;
 	char fileBuffer[FILEBUFFERSIZE];
+	size_t chunkSize;
+	int byte_read;
+	int i = 1;
 
 	file = fopen(fileName, "rb");
+
 	if(file == NULL)
     {
       printf("Given File Name \"%s\" does not exist.\n", fileName);
@@ -277,13 +273,6 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 
     size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
 	fseek(file, 0, SEEK_SET);
-	
-
-	size_t chunkSize;
-	
-
-	int byte_read;
-	int i = 1;
 
 	while (1) {
 		if (i < 4) {
@@ -293,7 +282,6 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 		}
 		bzero(fileBuffer, sizeof(fileBuffer));
 		byte_read = fread(fileBuffer, 1, chunkSize, file);
-		//printf("Chunk:%d     fileBuffer:%s:\n", chunkNum, fileBuffer);
 		if (i == chunkNum) {
 			break;
 		}
@@ -302,9 +290,8 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 
 	fclose(file);
 	
-	printf("Chunk:%d     FileSize:%d\t\tchunkSize:%d\nfileBuffer:%s:\n\n\n", chunkNum, file_size, chunkSize, fileBuffer);
+	printf("Chunk:%d     FileSize:%d\t\tchunkSize:%d\n\n", chunkNum, file_size, chunkSize);
 	getEncryptedData(fileBuffer, encryptedData, byte_read);
-
 	return chunkSize;
 }
 
@@ -328,19 +315,6 @@ void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFi
 }
 
 void constructPacketToSend(struct packet *pack, char *username, char *password, char *fileName, int chunkNum1, size_t chunkSize1, char *data1, int chunkNum2, size_t chunkSize2, char *data2) {
-
-
-	// printf("u:%s\n", username);
-	// printf("p:%s\n", password);
-	// printf("f:%s\n", fileName);
-	
-	// printf("cn1:%d\n", chunkNum1);
-	// printf("cs1:%d\n", chunkSize1);
-	// printf("d1:%s\n", data1);
-
-	// printf("cn2:%d\n", chunkNum2);
-	// printf("cs2:%d\n", chunkSize2);
-	// printf("d2:%s\n", data2);
 
 	char chunkName[100];
 	strcpy(pack->username, username);
@@ -480,8 +454,6 @@ int main (int argc, char **argv)
 	}
 	
 	while (1) {
-
-
 		bzero(sendline, sizeof(sendline));
 		printf("\n*********************** MENU ***********************\n");
 		printf(". put [FileName]\n. get [FileName]\n. mkdir [subfolder]\n. list\n. exit\n\n");
@@ -517,76 +489,76 @@ int main (int argc, char **argv)
 		}
 
 		printf("FileName:%s\n", fileName);
-		
-		char absoluteFile[100];
-	    bzero(absoluteFile, sizeof(absoluteFile));
-	    strcpy(absoluteFile, defaultPath);
-	    strcat(absoluteFile, fileName);
 
-	    printf("absoluteFile: %s\n", absoluteFile);
+		if (strcmp(command, "put") == 0) {
+			char absoluteFile[100];
+		    bzero(absoluteFile, sizeof(absoluteFile));
+		    strcpy(absoluteFile, defaultPath);
+		    strcat(absoluteFile, fileName);
 
-	    long md5 = getMd5Sum(absoluteFile);
-		printf("MD5: %ld\n\n", md5);
+		    printf("absoluteFile: %s\n", absoluteFile);
 
-		if (md5 == -1) {
-			printf("File is invalid. Please try again.\n");
-			continue;
-		}
-		char *something[4];
-		something[0] = calloc(FILEBUFFERSIZE, sizeof(char));
-		something[1] = calloc(FILEBUFFERSIZE, sizeof(char));
-		something[2] = calloc(FILEBUFFERSIZE, sizeof(char));
-		something[3] = calloc(FILEBUFFERSIZE, sizeof(char));
+		    long md5 = getMd5Sum(absoluteFile);
+			printf("MD5: %ld\n\n", md5);
 
-		size_t chunkSize[4];
-		for (int i = 0; i < 4; i++) {
-			chunkSize[i] = getFileChunk(something[i], absoluteFile, i + 1);
-		}
-		printf("-------------------------------------------\n\n");
-		struct packet pack;
-		int nbytes;
-		for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
-			
-			int firstChunkNum = getChunkToSend(serverIndex, md5, 1);
-			int secondChunkNum = getChunkToSend(serverIndex, md5, 2);
-
-			printf("firstChunkNum: %d\n", firstChunkNum);
-			printf("secondChunkNum: %d\n\n", secondChunkNum);
-
-			pack = EmptyStruct;
-
-			// printf("HEllo\n");
-			// printf("chunkSize1: %d\n", chunkSize[firstChunkNum]);
-			// printf("something1: %s\n", something[firstChunkNum]);
-
-			// printf("chunkSize2: %d\n", chunkSize[secondChunkNum]);
-			// printf("something2: %s\n", something[secondChunkNum]);
-
-			constructPacketToSend(&pack, username, password, fileName, firstChunkNum + 1, chunkSize[firstChunkNum], something[firstChunkNum], secondChunkNum + 1, chunkSize[secondChunkNum], something[secondChunkNum]);
-			printf("pack.username: %s\n", pack.username);
-			printf("pack.password: %s\n", pack.password);
-			printf("pack.firstFileName: %s\n", pack.firstFileName);
-			
-			printf("pack.firstFileSize: %d\n", pack.firstFileSize);
-			printf("pack.secondFileName: %s\n", pack.secondFileName);
-			printf("pack.secondFileSize: %d\n\n", pack.secondFileSize);
-
-			nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
-			if (nbytes < 0){
-				printf("Error in sendto to server %d.\n", serverIndex);
+			if (md5 == -1) {
+				printf("File is invalid. Please try again.\n");
+				continue;
 			}
-			printf("Waiting for server %d ACK..\n", serverIndex);
-			struct packet receivedPacket;
-			nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+			char *something[4];
+			something[0] = calloc(FILEBUFFERSIZE, sizeof(char));
+			something[1] = calloc(FILEBUFFERSIZE, sizeof(char));
+			something[2] = calloc(FILEBUFFERSIZE, sizeof(char));
+			something[3] = calloc(FILEBUFFERSIZE, sizeof(char));
+
+			size_t chunkSize[4];
+			for (int i = 0; i < 4; i++) {
+				chunkSize[i] = getFileChunk(something[i], absoluteFile, i + 1);
+			}
 			
-			if (nbytes > 0) {
-				printf("Server %d Sent:", serverIndex);
-				fputs(receivedPacket.message, stdout);
-				printf("\n\n");
+			struct packet pack;
+			int nbytes;
+			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
+				printf("---------------------Server %d----------------------\n\n", serverIndex);
+				int firstChunkNum = getChunkToSend(serverIndex, md5, 1);
+				int secondChunkNum = getChunkToSend(serverIndex, md5, 2);
+
+				pack = EmptyStruct;
+
+				constructPacketToSend(&pack, username, password, fileName, firstChunkNum + 1, chunkSize[firstChunkNum], something[firstChunkNum], secondChunkNum + 1, chunkSize[secondChunkNum], something[secondChunkNum]);
+				printf("pack.username: %s\n", pack.username);
+				printf("pack.password: %s\n", pack.password);
 				
-			} else {
-				printf("Negative bytes received from server %d.\n", serverIndex);
+				printf("pack.firstFileName: %s\n", pack.firstFileName);
+				printf("pack.firstFileSize: %d\n", pack.firstFileSize);
+				
+				printf("pack.secondFileName: %s\n", pack.secondFileName);
+				printf("pack.secondFileSize: %d\n\n", pack.secondFileSize);
+
+				strcpy(pack.command, "put");
+				pack.command[strlen(pack.command)] = '\0';
+
+				nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
+				if (nbytes < 0){
+					printf("Error in sendto to server %d.\n", serverIndex);
+				}
+				printf("Waiting for server %d ACK..\n", serverIndex);
+				struct packet receivedPacket;
+				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+				
+				if (nbytes > 0) {
+					printf("Server %d Sent:", serverIndex);
+					fputs(receivedPacket.message, stdout);
+					printf("\n\n");
+					
+				} else {
+					printf("Negative bytes received from server %d.\n", serverIndex);
+				}
 			}
+		} else if (strcmp(command, "get") == 0) {
+			printf("Inside Get command\n");
+		} else {
+			printf("Invalid command.\n");
 		}
 	}
 

@@ -183,12 +183,12 @@ int main (int argc, char **argv)
 			    	break;
 			    }
 			    printf("***Received***\n");
-			    printf("Username: %s\n", clientPacket.username);
-			    printf("password: %s\n", clientPacket.password);
+			    printf("Username:  %s\n", clientPacket.username);
+			    printf("password:  %s\n\n", clientPacket.password);
 			    printf("FileName1: %s\n", clientPacket.firstFileName);
-			    printf("FileSize1: %d\n", clientPacket.firstFileSize);
+			    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);
 			    printf("FileName2: %s\n", clientPacket.secondFileName);
-			    printf("FileSize2: %d\n", clientPacket.secondFileSize);
+			    printf("FileSize2: %d\n\n", clientPacket.secondFileSize);
 			    
 			    char userReceived[1000];
 			    bzero(userReceived, sizeof(userReceived));
@@ -205,6 +205,7 @@ int main (int argc, char **argv)
 
 			    //printf("UserList: %s\n", users);
 			    if (validUser == 1) {
+			    	printf("User is Valid.\n");
 			    	DIR *dir;
 			    	int ready = 1;
 			    	if ((dir = opendir (userDir)) == NULL) {
@@ -218,10 +219,17 @@ int main (int argc, char **argv)
 			    		}
 			    	}
 			    	if (ready == 1) {
-				    	writeFile(clientPacket.firstFileName, userDir, clientPacket.firstFile, clientPacket.firstFileSize);
-				    	writeFile(clientPacket.secondFileName, userDir, clientPacket.secondFile, clientPacket.secondFileSize);
-				    	strcpy(clientPacket.message, "Successful\n");
+			    		printf("Writing file.\n");
+			    		if (clientPacket.firstFileSize > 0 && clientPacket.secondFileSize > 0) {
+					    	writeFile(clientPacket.firstFileName, userDir, clientPacket.firstFile, clientPacket.firstFileSize);
+					    	writeFile(clientPacket.secondFileName, userDir, clientPacket.secondFile, clientPacket.secondFileSize);
+					    	strcpy(clientPacket.message, "Successful\n");
+				    	} else {
+				    		printf("Size of files sent was 0. Please try again.\n");
+				    		strcpy(clientPacket.message, "Size of files sent was 0. Please try again.\n");
+				    	}
 			    	} else {
+			    		printf("Directory failed.\n");
 			    		strcpy(clientPacket.message, "Directory Failed\n");
 			    	}
 			    	closedir (dir);

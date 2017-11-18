@@ -508,92 +508,49 @@ int main (int argc, char **argv)
 		printf("-------------------------------------------\n\n");
 		struct packet pack;
 		int nbytes;
-		
-		int firstChunkNum = getChunkToSend(0, md5, 1);
-		int secondChunkNum = getChunkToSend(0, md5, 2);
-
-		printf("firstChunkNum:%d\n", firstChunkNum);
-		printf("secondChunkNum:%d\n", secondChunkNum);
-
-		pack = EmptyStruct;
-
-		// printf("HEllo\n");
-		// printf("chunkSize1: %d\n", chunkSize[firstChunkNum]);
-		// printf("something1: %s\n", something[firstChunkNum]);
-
-		// printf("chunkSize2: %d\n", chunkSize[secondChunkNum]);
-		// printf("something2: %s\n", something[secondChunkNum]);
-
-		constructPacketToSend(&pack, username, password, fileName, firstChunkNum + 1, chunkSize[firstChunkNum], something[firstChunkNum], secondChunkNum + 1, chunkSize[secondChunkNum], something[secondChunkNum]);
-		printf("pack.username: %s\n", pack.username);
-		printf("pack.password: %s\n", pack.password);
-		printf("pack.firstFileName: %s\n", pack.firstFileName);
-		
-		printf("pack.firstFileSize: %d\n", pack.firstFileSize);
-		printf("pack.secondFileName: %s\n", pack.secondFileName);
-		printf("pack.secondFileSize: %d\n", pack.secondFileSize);
-
-
-		nbytes = sendto(sock[0], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[0], sizeof(servaddr[0]));
-		if (nbytes < 0){
-			printf("Error in sendto\n");
-		}
-		printf("Waiting for server 1 ack..\n");
-		struct packet receivedPacket;
-		nbytes = recvfrom(sock[0], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[0], &serverLength[0]);  
-		
-		if (nbytes > 0) {
-			printf("%s", "Server 1 Sent:");
-			fputs(receivedPacket.message, stdout);
+		for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
 			
-		} else {
-			printf("Negative bytes received.\n");
+			int firstChunkNum = getChunkToSend(serverIndex, md5, 1);
+			int secondChunkNum = getChunkToSend(serverIndex, md5, 2);
+
+			printf("firstChunkNum: %d\n", firstChunkNum);
+			printf("secondChunkNum: %d\n\n", secondChunkNum);
+
+			pack = EmptyStruct;
+
+			// printf("HEllo\n");
+			// printf("chunkSize1: %d\n", chunkSize[firstChunkNum]);
+			// printf("something1: %s\n", something[firstChunkNum]);
+
+			// printf("chunkSize2: %d\n", chunkSize[secondChunkNum]);
+			// printf("something2: %s\n", something[secondChunkNum]);
+
+			constructPacketToSend(&pack, username, password, fileName, firstChunkNum + 1, chunkSize[firstChunkNum], something[firstChunkNum], secondChunkNum + 1, chunkSize[secondChunkNum], something[secondChunkNum]);
+			printf("pack.username: %s\n", pack.username);
+			printf("pack.password: %s\n", pack.password);
+			printf("pack.firstFileName: %s\n", pack.firstFileName);
+			
+			printf("pack.firstFileSize: %d\n", pack.firstFileSize);
+			printf("pack.secondFileName: %s\n", pack.secondFileName);
+			printf("pack.secondFileSize: %d\n\n", pack.secondFileSize);
+
+			nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
+			if (nbytes < 0){
+				printf("Error in sendto to server %d.\n", serverIndex);
+			}
+			printf("Waiting for server %d ACK..\n", serverIndex);
+			struct packet receivedPacket;
+			nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+			
+			if (nbytes > 0) {
+				printf("Server %d Sent:", serverIndex);
+				fputs(receivedPacket.message, stdout);
+				printf("\n\n");
+				
+			} else {
+				printf("Negative bytes received from server %d.\n", serverIndex);
+			}
 		}
-
-		printf("username:%s\n", username);
-		printf("password:%s\n", password);
-		printf("\n-------------------------------\n");
-/*
-
-		send(sock1, sendline, strlen(sendline), 0);
-		send(sock2, sendline, strlen(sendline), 0);
-		send(sock3, sendline, strlen(sendline), 0);
-		send(sock4, sendline, strlen(sendline), 0);
-
-		if (recv(sock1, recvline1, MAXLINE,0) == 0){
-			//error: server terminated prematurely
-			perror("The server 1 terminated prematurely");
-			exit(4);
-		}
-		printf("%s", "String received from the server 1: ");
-		fputs(recvline1, stdout);
-
-		if (recv(sock2, recvline2, MAXLINE,0) == 0){
-			//error: server terminated prematurely
-			perror("The server 2 terminated prematurely");
-			exit(4);
-		}
-		printf("%s", "String received from the server 2: ");
-		fputs(recvline2, stdout);
-
-		if (recv(sock3, recvline3, MAXLINE,0) == 0){
-			//error: server terminated prematurely
-			perror("The server 3 terminated prematurely");
-			exit(4);
-		}
-		printf("%s", "String received from the server 3: ");
-		fputs(recvline3, stdout);
-
-		if (recv(sock4, recvline4, MAXLINE,0) == 0){
-			//error: server terminated prematurely
-			perror("The server 4 terminated prematurely");
-			exit(4);
-		}
-
-		printf("%s", "String received from the server 4: ");
-		fputs(recvline4, stdout);
-
-		*/
 	}
 
 	exit(0);

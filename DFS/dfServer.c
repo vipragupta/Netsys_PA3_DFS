@@ -158,6 +158,27 @@ size_t getFileChunk(char *fileBuffer, char *directory, char *username, char *fil
 	return file_size;
 }
 
+
+int createDir(char *userDir) {
+
+    DIR *dir;
+	if ((dir = opendir (userDir)) == NULL) {
+		printf("%s directory doesn't exist, creating...\n", userDir);
+		int st = mkdir(userDir, 0700);
+		if (st != 0) {
+			printf("mkdir Failed\n");
+			closedir (dir);
+			return 0;
+		} else {
+			closedir (dir);
+			return 1;
+		}
+	} else {
+		closedir (dir);
+		return 1;
+	}
+}
+
 int main (int argc, char **argv)
 {
 	char users[2000];
@@ -269,20 +290,10 @@ int main (int argc, char **argv)
 
 			    	if (strcmp(clientPacket.command, "put") == 0) {
 			    		printf("Inside put command\n");
-				    	DIR *dir;
-				    	int ready = 1;
-				    	if ((dir = opendir (userDir)) == NULL) {
-				    		ready = 0;
-				    		printf("%s directory doesn't exist, creating...\n", userDir);
-				    		int st = mkdir(userDir, 0700);
-				    		if (st != 0) {
-				    			printf("mkdir Failed\n");
-				    		} else {
-				    			ready = 1;
-				    		}
-				    	}
+				    	
+				    	int dirPresent = createDir(userDir);
 
-				    	if (ready == 1) {
+				    	if (dirPresent == 1) {
 				    		printf("Writing file.\n");
 				    		if (clientPacket.firstFileSize > 0 && clientPacket.secondFileSize > 0) {
 						    	writeFile(clientPacket.firstFileName, userDir, clientPacket.firstFile, clientPacket.firstFileSize);
@@ -291,10 +302,12 @@ int main (int argc, char **argv)
 					    	} else {
 					    		printf("Size of files sent was 0. Please try again.\n");
 					    		strcpy(clientPacket.message, "Size of files sent was 0. Please try again.\n");
+					    		clientPacket.code = 500;
 					    	}
 				    	} else {
 				    		printf("Directory failed.\n");
 				    		strcpy(clientPacket.message, "Directory Failed\n");
+				    		clientPacket.code = 500;
 				    	}
 				    	closedir (dir);
 			    	} else if (strcmp(clientPacket.command, "get") == 0) {
@@ -344,14 +357,48 @@ int main (int argc, char **argv)
 			    		}
 
 			    		
-			    	} else {
+			    	} else if (strcmp(clientPacket.command, "mkdir") == 0) {
+			    		
+				    	int ready = 1;
+
+				    	char userDir[100];
+					    bzero(userDir, sizeof(userDir));
+					    strcpy(userDir, defaultDir);
+					    strcat(userDir, clientPacket.username);
+					    strcat(userDir, "/");
+					    
+					    int dirPresent = createDir(userDir);
+					    if (dirPresent == 1) {
+					    	strcat(userDir, clientPacket.firstFileName);
+					    	strcat(userDir, "/");
+					    	int dirPresent = createDir(userDir);
+					    	
+					    	if (dirPresent == 1) {
+					    		printf("Directory Created.\n");
+					    		strcpy(clientPacket.message, "Directory Created");
+					    		clientPacket.code = 200;
+					    	} else {
+					    		printf("Directory failed.\n");
+					    		strcpy(clientPacket.message, "Directory Failed\n");
+					    		clientPacket.code = 500;
+					    	}
+					    } else {
+					    	printf("Directory failed.\n");
+				    		strcpy(clientPacket.message, "Directory Failed\n");
+				    		clientPacket.code = 500;
+					    }
+			     	} else if (strcmp(clientPacket.command, "exit") == 0) {
+			     		return 0;
+			     	} else {
 			    		printf("Invalid command.\n");
 			    		strcpy(clientPacket.message, "Invalid Command\n");
+			    		clientPacket.code = 500;
 			    	}
 
 			    } else {
 			    	printf("User is Invalid.\n");
 			    	strcpy(clientPacket.message, "Invalid User\n");
+			    	clientPacket.code = 500;
 			    }
 
 				printf("\n*********Sending***********\n");

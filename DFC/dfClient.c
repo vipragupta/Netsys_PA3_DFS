@@ -603,9 +603,7 @@ int main (int argc, char **argv)
 
 			printf("Inside Get command\n\ns");
 			struct packet pack;
-			
-
-			pack = EmptyStruct;
+			//pack = EmptyStruct;
 
 			strcpy(pack.username, username);
 			strcpy(pack.password, password);
@@ -685,6 +683,7 @@ int main (int argc, char **argv)
 				}
 			}
 			int chunkIndex[4] = {-1, -1, -1, -1};
+			
 			for (int serverIndex = 0; serverIndex < 8; serverIndex++) {
 				printf("serverIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\t", serverIndex, chunkFileName[serverIndex], chunkFileSize[serverIndex]);
 				printf("character: %c\n", chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1]);
@@ -720,7 +719,43 @@ int main (int argc, char **argv)
 			} else {
 				printf("Didn't find all the files.\n");
 			}
-		} else {
+		} else if (strcmp(command, "mkdir") == 0) {
+			printf("....Inside mkdir....\n");
+			struct packet pack;
+			//pack = EmptyStruct;
+
+			strcpy(pack.username, username);
+			strcpy(pack.password, password);
+	
+			strcpy(pack.firstFileName, fileName);
+			pack.firstFileName[strlen(pack.firstFileName)] = '\0';
+
+			strcpy(pack.command, "mkdir");
+			pack.command[strlen(pack.command)] = '\0';
+			
+			printf("pack.username: %s\n", pack.username);
+			printf("pack.password: %s\n", pack.password);
+			printf("pack.firstFileName: %s\n", pack.firstFileName);
+			int nbytes = 0;
+
+			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
+				printf("*****************Server %d*********************\n", serverIndex);
+				nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
+				
+				struct packet receivedPacket;
+				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+				printf("Size OF Packet: %lu\n", sizeof(receivedPacket));
+				printf("Status Code:    %d\n", receivedPacket.code);
+				printf("message:        %s\n", receivedPacket.message);
+				printf("nbytes:         %d\n", nbytes);
+				if (nbytes < 0) {
+					printf("mkdir Failed for Server %d . Please try again later.\n", serverIndex);
+				}
+			}
+
+		} else if (strcmp(command, "exit") == 0) {
+
+	    } else {
 			printf("Invalid command.\n");
 		}
 	}

@@ -327,6 +327,8 @@ void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFi
 	bzero(decryptedData, sizeof(decryptedData));
 	
 	getEncryptedData(encryptedData, decryptedData, size);
+	printf("\nEncrypted: %s\n", encryptedData);
+	printf("Decrypted: %s\n\n", decryptedData);
 	writeFile(fileName, additionalFileName, decryptedData, size, append);
 }
 
@@ -622,7 +624,7 @@ int main (int argc, char **argv)
 			printf("pack.secondFileName: %s\n", pack.secondFileName);
 			printf("pack.secondFileSize: %d\n\n", pack.secondFileSize);
 
-
+			struct packet receivedPacket[4];
 			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
 
 				int nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
@@ -632,39 +634,85 @@ int main (int argc, char **argv)
 				}
 				
 				printf("Waiting for server %d ACK..\n", serverIndex);
+				bzero(receivedPacket[serverIndex].firstFileName, sizeof(receivedPacket[serverIndex].firstFileName));
+				bzero(receivedPacket[serverIndex].secondFileName, sizeof(receivedPacket[serverIndex].secondFileName));
 				
-				struct packet receivedPacket;
-				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+				receivedPacket[serverIndex].firstFileSize = -1;
+				receivedPacket[serverIndex].secondFileSize = -1;
 				
-				if (nbytes > 0) {
-					printf("Server %d Sent\n", serverIndex);
-					printf("Status Code: %d\n", receivedPacket.code);
-					printf("firstFileName: %s\n", receivedPacket.firstFileName);
-					printf("firstFileSize: %d\n", receivedPacket.firstFileSize);
+				bzero(receivedPacket[serverIndex].firstFile, sizeof(receivedPacket[serverIndex].firstFile));
+				bzero(receivedPacket[serverIndex].secondFile, sizeof(receivedPacket[serverIndex].secondFile));
 
-					printf("secondFileName: %s\n", receivedPacket.secondFileName);
-					printf("secondFileName: %d\n", receivedPacket.secondFileSize);
+				
+				nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket[serverIndex]), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+				printf("Size OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
+
+				if (nbytes > 0) {
+					printf("**********************************Server %d Sent***************************************\n", serverIndex);
+					printf("Status Code: %d\n", receivedPacket[serverIndex].code);
+					printf("firstFileName: %s\n", receivedPacket[serverIndex].firstFileName);
+					printf("firstFileSize: %d\n", receivedPacket[serverIndex].firstFileSize);
+					printf("firstFile: %s\n", receivedPacket[serverIndex].firstFile);
+
+					printf("secondFileName: %s\n", receivedPacket[serverIndex].secondFileName);
+					printf("secondFileName: %d\n", receivedPacket[serverIndex].secondFileSize);
+					printf("secondFile: %s\n", receivedPacket[serverIndex].secondFile);
 					printf("\n\n");
-					if (receivedPacket.code == 200) {
+					if (receivedPacket[serverIndex].code == 200) {
 						
 						bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
-						strcpy(chunkFileName[dataIndex] , receivedPacket.firstFileName);
-						chunkFileSize[dataIndex] = receivedPacket.firstFileSize;
+						strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].firstFileName);
+						chunkFileSize[dataIndex] = receivedPacket[serverIndex].firstFileSize;
 						bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
-						memcpy(chunkFileData[dataIndex], receivedPacket.firstFile, chunkFileSize[dataIndex]);
+						memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].firstFile, chunkFileSize[dataIndex]);
 						dataIndex++;
 
 						bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
-						strcpy(chunkFileName[dataIndex] , receivedPacket.secondFileName);
-						chunkFileSize[dataIndex] = receivedPacket.secondFileSize;
+						strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].secondFileName);
+						chunkFileSize[dataIndex] = receivedPacket[serverIndex].secondFileSize;
 						bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
-						memcpy(chunkFileData[dataIndex], receivedPacket.secondFile, chunkFileSize[dataIndex]);
+						memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].secondFile, chunkFileSize[dataIndex]);
 						dataIndex++;
 					}
-					
 				} else {
 					printf("Negative bytes received from server %d.\n", serverIndex);
 				}
+			}
+			int chunkIndex[4] = {-1, -1, -1, -1};
+			for (int serverIndex = 0; serverIndex < 8; serverIndex++) {
+				printf("serverIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\t", serverIndex, chunkFileName[serverIndex], chunkFileSize[serverIndex]);
+				printf("character: %c\n", chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1]);
+				
+				if (chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1] == '1' && chunkIndex[0] == -1) {
+					chunkIndex[0] = serverIndex;
+				} else if (chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1] == '2' && chunkIndex[1] == -1) {
+					chunkIndex[1] = serverIndex;
+				} else if (chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1] == '3' && chunkIndex[2] == -1) {
+					chunkIndex[2] = serverIndex;
+				} else if (chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1] == '4' && chunkIndex[3] == -1) {
+					chunkIndex[3] = serverIndex;
+				}
+			}
+			int found = 0;
+			for (int z = 0; z < 4; z++) {
+				printf("z: %d chunkIndex: %d\n", z, chunkIndex[z]);
+				if (chunkIndex[z] != -1) {
+					found ++;
+				}
+			}
+			if (found == 4) {
+				printf("Found all 4 chunks.\n");
+				char absoluteFile[100];
+			    bzero(absoluteFile, sizeof(absoluteFile));
+			    strcpy(absoluteFile, defaultPath);
+			    strcat(absoluteFile, fileName);
+				
+				DecryptDataAndWrite(chunkFileData[chunkIndex[0]], absoluteFile, "_Final", chunkFileSize[chunkIndex[0]], 0);
+				DecryptDataAndWrite(chunkFileData[chunkIndex[1]], absoluteFile, "_Final", chunkFileSize[chunkIndex[1]], 1);
+				DecryptDataAndWrite(chunkFileData[chunkIndex[2]], absoluteFile, "_Final", chunkFileSize[chunkIndex[2]], 1);
+				DecryptDataAndWrite(chunkFileData[chunkIndex[3]], absoluteFile, "_Final", chunkFileSize[chunkIndex[3]], 1);
+			} else {
+				printf("Didn't find all the files.\n");
 			}
 		} else {
 			printf("Invalid command.\n");

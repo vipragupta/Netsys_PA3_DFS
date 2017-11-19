@@ -119,10 +119,7 @@ size_t getFileSize(FILE *file) {
 }
 
 size_t getFileChunk(char *fileBuffer, char *directory, char *username, char *fileName, char *chunkName, int chunkNum) {
-
-
 	//printf("directory: %s\tusername: %s\tfileName: %s\tchunkName: %s\tchunkNum: %d\n", directory, username, fileName, chunkName, chunkNum);
-
 	FILE *file;
 	
 	size_t chunkSize;
@@ -146,22 +143,14 @@ size_t getFileChunk(char *fileBuffer, char *directory, char *username, char *fil
 
 	if(file == NULL)
     {
-      //printf("Given File Name \"%s\" does not exist.\n", chunkName);
       return -1;
     }
 
     size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
 	fseek(file, 0, SEEK_SET);
 
-	int i = 1;
-	while (1) {
-		bzero(fileBuffer, sizeof(fileBuffer));
-		byte_read = fread(fileBuffer, 1, file_size, file);
-		if (i == chunkNum) {
-			break;
-		}
-		i ++;
-	}
+	bzero(fileBuffer, sizeof(fileBuffer));
+	byte_read = fread(fileBuffer, 1, file_size, file);
 
 	fclose(file);
 	
@@ -243,7 +232,7 @@ int main (int argc, char **argv)
 			    printf("***Received***\n");
 			    printf("Username:  %s\n", clientPacket.username);
 			    printf("password:  %s\n\n", clientPacket.password);
-			    printf("command:   %s\n", clientPacket.command); 
+			    printf("command:   %s\n", clientPacket.command);
 			    
 			    printf("FileName1: %s\n", clientPacket.firstFileName);
 			    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);
@@ -315,7 +304,8 @@ int main (int argc, char **argv)
 				    		char fileBuffer[FILEPACKETSIZE];
 				    		bzero(fileBuffer, sizeof(fileBuffer));
 
-				    		size_t chunkSize = getFileChunk(fileBuffer, defaultDir, clientPacket.username, getFileName, chunkName, chunkNum + 1);
+				    		size_t chunkSize = -1;
+				    		chunkSize = getFileChunk(fileBuffer, defaultDir, clientPacket.username, getFileName, chunkName, chunkNum + 1);
 				    		if (chunkSize != -1) {
 				    			if (isOne == 0) {
 				    				bzero(clientPacket.firstFileName, sizeof(clientPacket.firstFileName));
@@ -343,17 +333,7 @@ int main (int argc, char **argv)
 			    			clientPacket.code = 500;
 			    		}
 
-			    		printf("\n*********Sending***********\n");
-					    printf("Username:  %s\n", clientPacket.username);
-					    printf("password:  %s\n\n", clientPacket.password);
-					    printf("command:   %s\n", clientPacket.command); 
-					    
-					    printf("FileName1: %s\n", clientPacket.firstFileName);
-					    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);
-					    
-					    printf("FileName2: %s\n", clientPacket.secondFileName);
-					    printf("FileSize2: %d\n\n", clientPacket.secondFileSize);
-
+			    		
 			    	} else {
 			    		printf("Invalid command.\n");
 			    		strcpy(clientPacket.message, "Invalid Command\n");
@@ -364,6 +344,20 @@ int main (int argc, char **argv)
 			    	strcpy(clientPacket.message, "Invalid User\n");
 			    }
 
+				printf("\n*********Sending***********\n");
+			    printf("Username:  %s\n", clientPacket.username);
+			    printf("password:  %s\n\n", clientPacket.password);
+			    printf("command:   %s\n", clientPacket.command); 
+			    
+			    printf("FileName1: %s\n", clientPacket.firstFileName);
+			    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);
+			    printf("File1: %s\n\n", clientPacket.firstFile);
+			    
+			    printf("FileName2: %s\n", clientPacket.secondFileName);
+			    printf("FileSize2: %d\n\n", clientPacket.secondFileSize);
+			    printf("File2: %s\n\n", clientPacket.secondFile);
+
+			    printf("Size OF Packet: %lu\n", sizeof(clientPacket));
 			    
 			    nbytes = sendto(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 				if (nbytes < 0){

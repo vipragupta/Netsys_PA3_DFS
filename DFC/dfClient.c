@@ -1,5 +1,8 @@
 //			gcc dfClient.c -w -o dfc -lcrypto -lssl
 //			./dfc Client_2/dfc.conf
+//Max possible file is 100KB.
+
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,7 +17,7 @@
 #include <openssl/md5.h>
 
 #define FILEPACKETSIZE 50*1024	
-#define FILEBUFFERSIZE 1048576
+#define FILEBUFFERSIZE 50*1024
 #define MAXLINE 4096
 char *key = "vipra";
 static const struct packet EmptyStruct;
@@ -174,8 +177,9 @@ long getDecimalValue(char *hex) {
 
 long int getMd5Sum(char *fileName) {
 	FILE *file;
-	char fileBuffer[FILEBUFFERSIZE];
+	char fileBuffer[100 * 1024];
 	file = fopen(fileName, "rb");
+	
 	if(file == NULL)
     {
       printf("Given File Name does not exist: %s\n", fileName);
@@ -185,6 +189,12 @@ long int getMd5Sum(char *fileName) {
     printf("Inside Md5 for file: %s\n", fileName);
     size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
 	fseek(file, 0, SEEK_SET);
+
+	if (file_size > 100 * 1024) {
+		printf("Size of File is bigger than Max limit of this program - 100 * 1024\n");
+		return -1;
+	}
+
 
 	unsigned char c[64];
 	bzero(c, sizeof(c));
@@ -280,6 +290,12 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 		} else {
 			chunkSize = file_size - (file_size/ 4) * 3;
 		}
+		
+		if (chunkSize > FILEBUFFERSIZE) {
+			printf("Chunk Size is toooooo big for buffer.\n");
+			return -1;
+		}
+
 		bzero(fileBuffer, sizeof(fileBuffer));
 		byte_read = fread(fileBuffer, 1, chunkSize, file);
 		if (i == chunkNum) {
@@ -290,7 +306,7 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 
 	fclose(file);
 	
-	printf("Chunk:%d     FileSize:%d\t\tchunkSize:%d\n\n", chunkNum, file_size, chunkSize);
+	printf("Chunk:%d     FileSize:%d\t\tchunkSize:%d\n", chunkNum, file_size, chunkSize);
 	getEncryptedData(fileBuffer, encryptedData, byte_read);
 	return chunkSize;
 }
@@ -520,10 +536,19 @@ int main (int argc, char **argv)
 			something[3] = calloc(FILEBUFFERSIZE, sizeof(char));
 
 			size_t chunkSize[4];
+			int gotChunks = 1;
 			for (int i = 0; i < 4; i++) {
 				chunkSize[i] = getFileChunk(something[i], absoluteFile, i + 1);
+				if (chunkSize[i] == -1) {
+					gotChunks = 0;
+				}
 			}
 			
+			if (gotChunks == 0) {
+				printf("CHuNK SIZE TOOOOOOOOOOO BIG!!!!!!!!!!!!!!!!!!!!! Max possible Size: %d\n", FILEBUFFERSIZE);
+				continue;
+			}
+
 			struct packet pack;
 			int nbytes;
 			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {

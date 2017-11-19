@@ -327,8 +327,8 @@ void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFi
 	bzero(decryptedData, sizeof(decryptedData));
 	
 	getEncryptedData(encryptedData, decryptedData, size);
-	printf("\nEncrypted: %s\n", encryptedData);
-	printf("Decrypted: %s\n\n", decryptedData);
+	// printf("\nEncrypted: %s\n", encryptedData);
+	// printf("Decrypted: %s\n\n", decryptedData);
 	writeFile(fileName, additionalFileName, decryptedData, size, append);
 }
 
@@ -646,10 +646,12 @@ int main (int argc, char **argv)
 				
 				nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket[serverIndex]), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
 				printf("Size OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
-
+				printf("Status Code:    %d\n", receivedPacket[serverIndex].code);
+				printf("message:        %s\n", receivedPacket[serverIndex].message);
+				printf("nbytes:         %d\n", nbytes);
 				if (nbytes > 0) {
 					printf("**********************************Server %d Sent***************************************\n", serverIndex);
-					printf("Status Code: %d\n", receivedPacket[serverIndex].code);
+					
 					printf("firstFileName: %s\n", receivedPacket[serverIndex].firstFileName);
 					printf("firstFileSize: %d\n", receivedPacket[serverIndex].firstFileSize);
 					printf("firstFile: %s\n", receivedPacket[serverIndex].firstFile);
@@ -660,19 +662,23 @@ int main (int argc, char **argv)
 					printf("\n\n");
 					if (receivedPacket[serverIndex].code == 200) {
 						
-						bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
-						strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].firstFileName);
-						chunkFileSize[dataIndex] = receivedPacket[serverIndex].firstFileSize;
-						bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
-						memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].firstFile, chunkFileSize[dataIndex]);
-						dataIndex++;
+						if (receivedPacket[serverIndex].firstFileSize > 0) {
+							bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
+							strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].firstFileName);
+							chunkFileSize[dataIndex] = receivedPacket[serverIndex].firstFileSize;
+							bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
+							memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].firstFile, chunkFileSize[dataIndex]);
+							dataIndex++;
+						}
 
-						bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
-						strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].secondFileName);
-						chunkFileSize[dataIndex] = receivedPacket[serverIndex].secondFileSize;
-						bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
-						memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].secondFile, chunkFileSize[dataIndex]);
-						dataIndex++;
+						if (receivedPacket[serverIndex].secondFileSize > 0) {
+							bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
+							strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].secondFileName);
+							chunkFileSize[dataIndex] = receivedPacket[serverIndex].secondFileSize;
+							bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
+							memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].secondFile, chunkFileSize[dataIndex]);
+							dataIndex++;
+						}
 					}
 				} else {
 					printf("Negative bytes received from server %d.\n", serverIndex);

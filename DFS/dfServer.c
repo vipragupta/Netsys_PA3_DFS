@@ -173,6 +173,16 @@ int main (int argc, char **argv)
 	}
 	defaultDir[strlen(defaultDir)] = '\0';
 
+	DIR *dir;
+	if ((dir = opendir (defaultDir)) == NULL) {
+		printf("%s directory doesn't exist, creating...\n", defaultDir);
+		int st = mkdir(defaultDir, 0700);
+		if (st != 0) {
+			printf("mkdir for %s Failed\n", defaultDir);
+			return 0;
+		}
+	}
+
 	getDefaultFileName("dfs.conf", users);
 	printf("%s\n\n", users);
 
@@ -348,6 +358,8 @@ int main (int argc, char **argv)
 			    printf("Username:  %s\n", clientPacket.username);
 			    printf("password:  %s\n\n", clientPacket.password);
 			    printf("command:   %s\n", clientPacket.command); 
+			    printf("code:      %d\n", clientPacket.code);
+			    printf("message:   %s\n", clientPacket.message); 
 			    
 			    printf("FileName1: %s\n", clientPacket.firstFileName);
 			    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);

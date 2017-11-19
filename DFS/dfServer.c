@@ -360,9 +360,6 @@ int main (int argc, char **argv)
 
 			    		
 			    	} else if (strcmp(clientPacket.command, "mkdir") == 0) {
-			    		
-				    	int ready = 1;
-
 				    	char userDir[100];
 					    bzero(userDir, sizeof(userDir));
 					    strcpy(userDir, defaultDir);
@@ -390,8 +387,51 @@ int main (int argc, char **argv)
 				    		clientPacket.code = 500;
 					    }
 			     	} else if (strcmp(clientPacket.command, "exit") == 0) {
+			     		strcpy(clientPacket.message, "Exiting, byee....");
+			     		clientPacket.code = 200;
+			     		int nbytes = sendto(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+						if (nbytes < 0){
+							printf("Error in sendto\n");
+						}
 			     		return 0;
-			     	} else {
+			     	} else if(strcmp(clientPacket.command, "list") == 0) {
+			     		DIR *dir;
+						struct dirent *ent;
+						struct packet pack;
+						
+						char userDir[100];
+					    bzero(userDir, sizeof(userDir));
+					    strcpy(userDir, defaultDir);
+					    strcat(userDir, clientPacket.username);
+					    strcat(userDir, "/");
+
+					    char files[300];
+					    bzero(files, sizeof(files));
+
+						int fileNumber = 0;
+						//Check if directory exist.
+						if ((dir = opendir (userDir)) != NULL) {
+						    while ((ent = readdir (dir)) != NULL) {
+						    	//Add the file name only if its not . or ..
+						    	if (strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ) {
+							    	if (fileNumber == 0) {
+							    		strcpy((char *) files, ent->d_name);
+							    	} else {
+							    		strcat((char *) files, ent->d_name);
+							    	}
+							    	//Concatenate all filenames separated by #
+							    	strcat((char *)files, "#");
+
+									fileNumber++;
+								}
+							}
+							closedir (dir);
+						}
+						strcpy(clientPacket.firstFile, files);
+						clientPacket.code = 200;
+						strcpy(clientPacket.message, "Successful");
+
+			        } else {
 			    		printf("Invalid command.\n");
 			    		strcpy(clientPacket.message, "Invalid Command\n");
 			    		clientPacket.code = 500;

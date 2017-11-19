@@ -28,7 +28,8 @@ struct packet
 	char command[10];	//will contain the command that user entered
 	char message[100];	//If command failed, then this will contain the message from server.
 	int code;			//200:Pass,  500:Fail
-	
+	char subFolder[100];
+
 	char firstFileName[50];			//First chunk
 	char firstFile[FILEPACKETSIZE];
 	int firstFileSize;
@@ -253,14 +254,14 @@ int main (int argc, char **argv)
 			struct packet clientPacket;
 
 			while (1) {
-				printf("\n---------------------------------------\n");
+				printf("\n---------------------------------------------------------------------------\n");
 				
 				if (recvfrom(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, &remote_length) < 0)
 			    {
 			    	printf("%s\n", "Error in Receive From.");
 			    	break;
 			    }
-			    printf("***Received***\n");
+			    printf("************Received***************\n");
 			    printf("Username:  %s\n", clientPacket.username);
 			    printf("password:  %s\n\n", clientPacket.password);
 			    printf("command:   %s\n", clientPacket.command);
@@ -298,21 +299,45 @@ int main (int argc, char **argv)
 				    		if (clientPacket.firstFileSize > 0 && clientPacket.secondFileSize > 0) {
 						    	writeFile(clientPacket.firstFileName, userDir, clientPacket.firstFile, clientPacket.firstFileSize);
 						    	writeFile(clientPacket.secondFileName, userDir, clientPacket.secondFile, clientPacket.secondFileSize);
-						    	strcpy(clientPacket.message, "Successful\n");
-					    		clientPacket.code = 200;
+						    	struct packet sendPacket;
+						    	strcpy(sendPacket.message, "Successful\n");
+					    		sendPacket.code = 200;
+					    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+								if (nbytes < 0){
+									printf("Error in sendto\n");
+								}
 					    		//printf("Leaving writing if.\n");
 					    	} else {
+					    		struct packet sendPacket;
 					    		printf("Size of files sent was 0. Please try again.\n");
-					    		strcpy(clientPacket.message, "Size of files sent was 0. Please try again.\n");
-					    		clientPacket.code = 500;
+					    		strcpy(sendPacket.message, "Size of files sent was 0. Please try again.\n");
+					    		sendPacket.code = 500;
+
+					    		printf("\n*********Sending***********\n");
+							    printf("code:      %d\n", sendPacket.code);
+							    printf("message:   %s\n", sendPacket.message); 
+					    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+								if (nbytes < 0){
+									printf("Error in sendto\n");
+								}
 					    	}
 				    	} else {
+				    		struct packet sendPacket;
 				    		printf("Directory failed.\n");
-				    		strcpy(clientPacket.message, "Directory Failed\n");
-				    		clientPacket.code = 500;
+				    		strcpy(sendPacket.message, "Directory Failed\n");
+				    		sendPacket.code = 500;
+				    		printf("\n*********Sending***********\n");
+						    printf("code:      %d\n", sendPacket.code);
+						    printf("message:   %s\n", sendPacket.message); 
+
+				    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+							if (nbytes < 0){
+								printf("Error in sendto\n");
+							}
 				    	}
 
 			    	} else if (strcmp(clientPacket.command, "get") == 0) {
+			    		struct packet sendPacket;
 			    		printf("Inside Get Command\n\n");
 			    		int isOne = 0;
 			    		int addedFiles = 0;
@@ -333,29 +358,57 @@ int main (int argc, char **argv)
 				    		chunkSize = getFileChunk(fileBuffer, defaultDir, clientPacket.username, getFileName, chunkName, chunkNum + 1);
 				    		if (chunkSize != -1) {
 				    			if (isOne == 0) {
-				    				bzero(clientPacket.firstFileName, sizeof(clientPacket.firstFileName));
-				    				bzero(clientPacket.firstFile, sizeof(clientPacket.firstFile));
-				    				clientPacket.firstFileSize = chunkSize;
-				    				strcpy(clientPacket.firstFileName, chunkName);
-				    				memcpy(clientPacket.firstFile, fileBuffer, chunkSize);
+				    				bzero(sendPacket.firstFileName, sizeof(sendPacket.firstFileName));
+				    				bzero(sendPacket.firstFile, sizeof(sendPacket.firstFile));
+				    				
+				    				sendPacket.firstFileSize = chunkSize;
+				    				strcpy(sendPacket.firstFileName, chunkName);
+				    				memcpy(sendPacket.firstFile, fileBuffer, chunkSize);
 				    				isOne = 1;
 				    			} else {
-				    				bzero(clientPacket.secondFileName, sizeof(clientPacket.secondFileName));
-				    				bzero(clientPacket.secondFile, sizeof(clientPacket.secondFile));
-				    				clientPacket.secondFileSize = chunkSize;
-				    				strcpy(clientPacket.secondFileName, chunkName);
-				    				memcpy(clientPacket.secondFile, fileBuffer, chunkSize);
+				    				bzero(sendPacket.secondFileName, sizeof(sendPacket.secondFileName));
+				    				bzero(sendPacket.secondFile, sizeof(sendPacket.secondFile));
+				    				
+				    				sendPacket.secondFileSize = chunkSize;
+				    				strcpy(sendPacket.secondFileName, chunkName);
+				    				memcpy(sendPacket.secondFile, fileBuffer, chunkSize);
 				    			}
 				    			addedFiles++;
 				    		}
 
 			    		}
 			    		if (addedFiles > 0) {
-			    			strcpy(clientPacket.message, "Successful");
-			    			clientPacket.code = 200;
+			    			strcpy(sendPacket.message, "Successful");
+			    			sendPacket.code = 200;
+
+			    			printf("\n*********Sending***********\n");
+						    printf("Username:  %s\n", sendPacket.username);
+						    printf("password:  %s\n\n", sendPacket.password);
+						    printf("command:   %s\n", sendPacket.command); 
+						    printf("code:      %d\n", sendPacket.code);
+						    printf("message:   %s\n", sendPacket.message); 
+						    
+						    printf("FileName1: %s\n", sendPacket.firstFileName);
+						    printf("FileSize1: %d\n\n", sendPacket.firstFileSize);
+						    printf("File1:     %s\n\n", sendPacket.firstFile);
+						    
+						    printf("FileName2: %s\n", sendPacket.secondFileName);
+						    printf("FileSize2: %d\n\n", sendPacket.secondFileSize);
+						    printf("File2:     %s\n\n", sendPacket.secondFile);
+
+						    printf("Size OF Packet: %lu\n", sizeof(sendPacket));
+
+			    			nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+							if (nbytes < 0){
+								printf("Error in sendto\n");
+							}
 			    		} else {
-			    			strcpy(clientPacket.message, "Fail");
-			    			clientPacket.code = 500;
+			    			strcpy(sendPacket.message, "Fail");
+			    			sendPacket.code = 500;
+			    			nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+							if (nbytes < 0){
+								printf("Error in sendto\n");
+							}
 			    		}
 
 			    		
@@ -373,23 +426,40 @@ int main (int argc, char **argv)
 					    	int dirPresent = createDir(userDir);
 					    	
 					    	if (dirPresent == 1) {
+					    		struct packet sendPacket;
 					    		printf("Directory Created.\n");
-					    		strcpy(clientPacket.message, "Directory Created");
-					    		clientPacket.code = 200;
+					    		strcpy(sendPacket.message, "Directory Created");
+					    		sendPacket.code = 200;
+					    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+								if (nbytes < 0){
+									printf("Error in sendto\n");
+								}
 					    	} else {
+					    		struct packet sendPacket;
 					    		printf("Directory failed.\n");
-					    		strcpy(clientPacket.message, "Directory Failed\n");
-					    		clientPacket.code = 500;
+					    		strcpy(sendPacket.message, "Directory Failed\n");
+					    		sendPacket.code = 500;
+					    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+								if (nbytes < 0){
+									printf("Error in sendto\n");
+								}
 					    	}
 					    } else {
+					    	struct packet sendPacket;
 					    	printf("Directory failed.\n");
-				    		strcpy(clientPacket.message, "Directory Failed\n");
-				    		clientPacket.code = 500;
+				    		strcpy(sendPacket.message, "Directory Failed\n");
+				    		sendPacket.code = 500;
+				    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+							if (nbytes < 0){
+								printf("Error in sendto\n");
+							}
 					    }
 			     	} else if (strcmp(clientPacket.command, "exit") == 0) {
-			     		strcpy(clientPacket.message, "Exiting, byee....");
-			     		clientPacket.code = 200;
-			     		int nbytes = sendto(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+			     		struct packet sendPacket;
+			     		printf("Exiting, byee....\n");
+			     		strcpy(sendPacket.message, "Exiting, byee....");
+			     		sendPacket.code = 200;
+			     		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 						if (nbytes < 0){
 							printf("Error in sendto\n");
 						}
@@ -427,43 +497,58 @@ int main (int argc, char **argv)
 							}
 							closedir (dir);
 						}
-						strcpy(clientPacket.firstFile, files);
-						clientPacket.code = 200;
-						strcpy(clientPacket.message, "Successful");
+
+						struct packet sendPacket;
+						bzero(sendPacket.firstFile, sizeof(sendPacket.firstFile));
+						strcpy(sendPacket.firstFile, files);
+						sendPacket.code = 200;
+						strcpy(sendPacket.message, "Successful");
+						nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+						
+						if (nbytes < 0){
+							printf("Error in sendto\n");
+						}
 
 			        } else {
+			        	struct packet sendPacket;
 			    		printf("Invalid command.\n");
-			    		strcpy(clientPacket.message, "Invalid Command\n");
-			    		clientPacket.code = 500;
+			    		strcpy(sendPacket.message, "Invalid Command\n");
+			    		sendPacket.code = 500;
+			    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+						if (nbytes < 0){
+							printf("Error in sendto\n");
+						}
 			    	}
 
 			    } else {
-			    	printf("User is Invalid.\n");
-			    	strcpy(clientPacket.message, "Invalid User\n");
-			    	clientPacket.code = 500;
+			    	struct packet sendPacket;
+			    	printf("Invalid User/Password. Please try again.\n");
+			    	strcpy(sendPacket.message, "Invalid User/Password. Please try again.\n");
+			    	sendPacket.code = 500;
+			    	nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
+					if (nbytes < 0){
+						printf("Error in sendto\n");
+					}
 			    }
 
-				printf("\n*********Sending***********\n");
-			    printf("Username:  %s\n", clientPacket.username);
-			    printf("password:  %s\n\n", clientPacket.password);
-			    printf("command:   %s\n", clientPacket.command); 
-			    printf("code:      %d\n", clientPacket.code);
-			    printf("message:   %s\n", clientPacket.message); 
+				// printf("\n*********Sending***********\n");
+			 //    printf("Username:  %s\n", clientPacket.username);
+			 //    printf("password:  %s\n\n", clientPacket.password);
+			 //    printf("command:   %s\n", clientPacket.command); 
+			 //    printf("code:      %d\n", clientPacket.code);
+			 //    printf("message:   %s\n", clientPacket.message); 
 			    
-			    printf("FileName1: %s\n", clientPacket.firstFileName);
-			    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);
-			    printf("File1: %s\n\n", clientPacket.firstFile);
+			 //    printf("FileName1: %s\n", clientPacket.firstFileName);
+			 //    printf("FileSize1: %d\n\n", clientPacket.firstFileSize);
+			 //    printf("File1: %s\n\n", clientPacket.firstFile);
 			    
-			    printf("FileName2: %s\n", clientPacket.secondFileName);
-			    printf("FileSize2: %d\n\n", clientPacket.secondFileSize);
-			    printf("File2: %s\n\n", clientPacket.secondFile);
+			 //    printf("FileName2: %s\n", clientPacket.secondFileName);
+			 //    printf("FileSize2: %d\n\n", clientPacket.secondFileSize);
+			 //    printf("File2: %s\n\n", clientPacket.secondFile);
 
-			    printf("Size OF Packet: %lu\n", sizeof(clientPacket));
+			 //    printf("Size OF Packet: %lu\n", sizeof(clientPacket));
 			    
-			    nbytes = sendto(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
-				if (nbytes < 0){
-					printf("Error in sendto\n");
-				}
+			    
 			}
 
 			// while ( (n = recv(connfd, buf, MAXLINE,0)) > 0)  {

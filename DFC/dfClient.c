@@ -33,7 +33,8 @@ struct packet
 	char command[10];	//will contain the command that user entered
 	char message[100];	//If command failed, then this will contain the message from server.
 	int code;			//200:Pass,  500:Fail
-	
+	char subFolder[100];
+
 	char firstFileName[50];			//First chunk
 	char firstFile[FILEPACKETSIZE];
 	int firstFileSize;
@@ -419,12 +420,6 @@ int main (int argc, char **argv)
 	printf("password:%s:\n", password);
 	printf("defaultPath:%s:\n\n", defaultPath);
 
-/*
-	DecryptDataAndWrite(encryptedDataOne, fileName, "_Final", chunkSizeOne, 0);
-	DecryptDataAndWrite(encryptedDataTwo, fileName, "_Final", chunkSizeTwo, 1);
-	DecryptDataAndWrite(encryptedDataThree, fileName, "_Final", chunkSizeThree, 1);
-	DecryptDataAndWrite(encryptedDataFour, fileName, "_Final", chunkSizeFour, 1);
-*/
 	int sock[4];
 	struct sockaddr_in servaddr[4];
 	unsigned int serverLength[4];
@@ -480,7 +475,6 @@ int main (int argc, char **argv)
 		if (connect(sock[i], (struct sockaddr *) &servaddr[i], sizeof(servaddr[i])) < 0) {
 			printf("Problem in connecting to the server %d.\n", i);
 			connectS++;
-			//exit(3);
 		} else {
 			printf("Connection Successful for Server %d.\n", i);
 		}
@@ -490,7 +484,6 @@ int main (int argc, char **argv)
 		printf("Problem in connecting with servers.\n");
 		return 0;
 	}
-
 	
 	for (int i = 0; i < 4; i++) {
 		serverLength[i] = sizeof(servaddr[i]);
@@ -512,10 +505,7 @@ int main (int argc, char **argv)
 		printf("--------------------------------------\n");
 		printf("You selected:%s:\n\n", option);
 
-
-		//bzero(fileName, sizeof(fileName));
 		char *command;
-		//char *filename;
 		command = strtok(option, " ");
 		printf("command: %s\n", command);
 		//Move on only if user has entered something.
@@ -568,9 +558,10 @@ int main (int argc, char **argv)
 				continue;
 			}
 
-			struct packet pack;
+			
 			int nbytes;
 			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
+				struct packet pack;
 				printf("---------------------Server %d----------------------\n\n", serverIndex);
 				int firstChunkNum = getChunkToSend(serverIndex, md5, 1);
 				int secondChunkNum = getChunkToSend(serverIndex, md5, 2);
@@ -596,10 +587,12 @@ int main (int argc, char **argv)
 				}
 				printf("Waiting for server %d ACK..\n", serverIndex);
 				struct packet receivedPacket;
+				receivedPacket.code = -1;
 				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
 				
 				if (nbytes > 0) {
-					printf("Server %d Sent:", serverIndex);
+					printf("Server %d Sent:\n", serverIndex);
+					printf("code:%d\n", receivedPacket.message);
 					fputs(receivedPacket.message, stdout);
 					printf("\n\n");
 					
@@ -639,9 +632,9 @@ int main (int argc, char **argv)
 			printf("pack.secondFileName: %s\n", pack.secondFileName);
 			printf("pack.secondFileSize: %d\n\n", pack.secondFileSize);
 
-			struct packet receivedPacket[4];
+			
 			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
-
+				struct packet receivedPacket;
 				int nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
 				
 				if (nbytes < 0){
@@ -649,58 +642,60 @@ int main (int argc, char **argv)
 				}
 				
 				printf("Waiting for server %d ACK..\n", serverIndex);
-				bzero(receivedPacket[serverIndex].firstFileName, sizeof(receivedPacket[serverIndex].firstFileName));
-				bzero(receivedPacket[serverIndex].secondFileName, sizeof(receivedPacket[serverIndex].secondFileName));
+				bzero(receivedPacket.firstFileName, sizeof(receivedPacket.firstFileName));
+				bzero(receivedPacket.secondFileName, sizeof(receivedPacket.secondFileName));
 				
-				receivedPacket[serverIndex].firstFileSize = -1;
-				receivedPacket[serverIndex].secondFileSize = -1;
+				receivedPacket.firstFileSize = -1;
+				receivedPacket.secondFileSize = -1;
 				
-				bzero(receivedPacket[serverIndex].firstFile, sizeof(receivedPacket[serverIndex].firstFile));
-				bzero(receivedPacket[serverIndex].secondFile, sizeof(receivedPacket[serverIndex].secondFile));
+				bzero(receivedPacket.firstFile, sizeof(receivedPacket.firstFile));
+				bzero(receivedPacket.secondFile, sizeof(receivedPacket.secondFile));
 
 				
-				nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket[serverIndex]), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
 				
 				if (nbytes > 0) {
 					printf("**********************************Server %d Sent***************************************\n", serverIndex);
-					printf("Size OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
-					printf("Status Code:    %d\n", receivedPacket[serverIndex].code);
-					printf("message:        %s\n\n", receivedPacket[serverIndex].message);
+					printf("Size OF Packet: %lu\n", sizeof(receivedPacket));
+					printf("Status Code:    %d\n", receivedPacket.code);
+					printf("message:        %s\n\n", receivedPacket.message);
 					printf("nbytes:         %d\n", nbytes);
-					printf("firstFileName: %s\n", receivedPacket[serverIndex].firstFileName);
-					printf("firstFileSize: %d\n", receivedPacket[serverIndex].firstFileSize);
-					printf("firstFile: %s\n\n", receivedPacket[serverIndex].firstFile);
+					printf("firstFileName: %s\n", receivedPacket.firstFileName);
+					printf("firstFileSize: %d\n", receivedPacket.firstFileSize);
+					printf("firstFile: %s\n\n", receivedPacket.firstFile);
 
-					printf("secondFileName: %s\n", receivedPacket[serverIndex].secondFileName);
-					printf("secondFileName: %d\n", receivedPacket[serverIndex].secondFileSize);
-					printf("secondFile: %s\n\n", receivedPacket[serverIndex].secondFile);
+					printf("secondFileName: %s\n", receivedPacket.secondFileName);
+					printf("secondFileName: %d\n", receivedPacket.secondFileSize);
+					printf("secondFile: %s\n\n", receivedPacket.secondFile);
 					printf("\n\n");
-					if (receivedPacket[serverIndex].code == 200) {
-						
-						if (receivedPacket[serverIndex].firstFileSize > 0) {
+					if (receivedPacket.code == 200) {
+						if (receivedPacket.firstFileSize > 0) {
 							printf("Copying Data FROM FIRST File\n");
 							
 							bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
 							chunkFileName[dataIndex][0] = '\0';
-							strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].firstFileName);
-							chunkFileSize[dataIndex] = receivedPacket[serverIndex].firstFileSize;
+							strcpy(chunkFileName[dataIndex] , receivedPacket.firstFileName);
+							chunkFileSize[dataIndex] = receivedPacket.firstFileSize;
 							bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
 							chunkFileData[dataIndex][0] = '\0';
-							memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].firstFile, chunkFileSize[dataIndex]);
-							printf("dataIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\t", dataIndex, chunkFileName[dataIndex], chunkFileSize[dataIndex]);
+							memcpy(chunkFileData[dataIndex], receivedPacket.firstFile, chunkFileSize[dataIndex]);
+							printf("dataIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\n", dataIndex, chunkFileName[dataIndex], chunkFileSize[dataIndex]);
 
 							dataIndex++;
+						} else {
+							printf("No data Received from server %d\n", serverIndex);
 						}
 
-						if (receivedPacket[serverIndex].secondFileSize > 0) {
+						if (receivedPacket.secondFileSize > 0) {
 							printf("Copying Data FROM SECOND File\n");
+							
 							bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
 							chunkFileName[dataIndex][0] = '\0';
-							strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].secondFileName);
-							chunkFileSize[dataIndex] = receivedPacket[serverIndex].secondFileSize;
+							strcpy(chunkFileName[dataIndex] , receivedPacket.secondFileName);
+							chunkFileSize[dataIndex] = receivedPacket.secondFileSize;
 							bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
 							chunkFileData[dataIndex][0] = '\0';
-							memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].secondFile, chunkFileSize[dataIndex]);
+							memcpy(chunkFileData[dataIndex], receivedPacket.secondFile, chunkFileSize[dataIndex]);
 							printf("dataIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\n", dataIndex, chunkFileName[dataIndex], chunkFileSize[dataIndex]);
 							dataIndex++;
 						}
@@ -710,7 +705,7 @@ int main (int argc, char **argv)
 				}
 			}
 			int chunkIndex[4] = {-1, -1, -1, -1};
-			
+			printf("\n");
 			for (int serverIndex = 0; serverIndex < 8; serverIndex++) {
 				printf("serverIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\t", serverIndex, chunkFileName[serverIndex], chunkFileSize[serverIndex]);
 				printf("character: %c\n", chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1]);
@@ -744,7 +739,7 @@ int main (int argc, char **argv)
 				DecryptDataAndWrite(chunkFileData[chunkIndex[2]], absoluteFile, "_Final", chunkFileSize[chunkIndex[2]], 1);
 				DecryptDataAndWrite(chunkFileData[chunkIndex[3]], absoluteFile, "_Final", chunkFileSize[chunkIndex[3]], 1);
 			} else {
-				printf("Didn't find all the files.\n");
+				printf("File is INCOMPLETE.\n");
 			}
 		} else if (strcmp(command, "mkdir") == 0) {
 			printf("....Inside mkdir....\n");
@@ -837,6 +832,8 @@ int main (int argc, char **argv)
 				nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
 				
 				struct packet receivedPacket;
+				bzero(receivedPacket.firstFile, sizeof(receivedPacket.firstFile));
+
 				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
 				if (nbytes > 0) {
 					printf("Size OF Packet: %lu\n", sizeof(receivedPacket));

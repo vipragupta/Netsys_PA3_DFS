@@ -643,38 +643,48 @@ int main (int argc, char **argv)
 
 				
 				nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket[serverIndex]), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
-				printf("Size OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
-				printf("Status Code:    %d\n", receivedPacket[serverIndex].code);
-				printf("message:        %s\n", receivedPacket[serverIndex].message);
-				printf("nbytes:         %d\n", nbytes);
+				
 				if (nbytes > 0) {
 					printf("**********************************Server %d Sent***************************************\n", serverIndex);
-					
+					printf("Size OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
+					printf("Status Code:    %d\n", receivedPacket[serverIndex].code);
+					printf("message:        %s\n\n", receivedPacket[serverIndex].message);
+					printf("nbytes:         %d\n", nbytes);
 					printf("firstFileName: %s\n", receivedPacket[serverIndex].firstFileName);
 					printf("firstFileSize: %d\n", receivedPacket[serverIndex].firstFileSize);
-					printf("firstFile: %s\n", receivedPacket[serverIndex].firstFile);
+					printf("firstFile: %s\n\n", receivedPacket[serverIndex].firstFile);
 
 					printf("secondFileName: %s\n", receivedPacket[serverIndex].secondFileName);
 					printf("secondFileName: %d\n", receivedPacket[serverIndex].secondFileSize);
-					printf("secondFile: %s\n", receivedPacket[serverIndex].secondFile);
+					printf("secondFile: %s\n\n", receivedPacket[serverIndex].secondFile);
 					printf("\n\n");
 					if (receivedPacket[serverIndex].code == 200) {
 						
 						if (receivedPacket[serverIndex].firstFileSize > 0) {
+							printf("Copying Data FROM FIRST File\n");
+							
 							bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
+							chunkFileName[dataIndex][0] = '\0';
 							strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].firstFileName);
 							chunkFileSize[dataIndex] = receivedPacket[serverIndex].firstFileSize;
 							bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
+							chunkFileData[dataIndex][0] = '\0';
 							memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].firstFile, chunkFileSize[dataIndex]);
+							printf("dataIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\t", dataIndex, chunkFileName[dataIndex], chunkFileSize[dataIndex]);
+
 							dataIndex++;
 						}
 
 						if (receivedPacket[serverIndex].secondFileSize > 0) {
+							printf("Copying Data FROM SECOND File\n");
 							bzero(chunkFileName[dataIndex], sizeof(chunkFileName[dataIndex]));
+							chunkFileName[dataIndex][0] = '\0';
 							strcpy(chunkFileName[dataIndex] , receivedPacket[serverIndex].secondFileName);
 							chunkFileSize[dataIndex] = receivedPacket[serverIndex].secondFileSize;
 							bzero(chunkFileData[dataIndex], sizeof(chunkFileData[dataIndex]));
+							chunkFileData[dataIndex][0] = '\0';
 							memcpy(chunkFileData[dataIndex], receivedPacket[serverIndex].secondFile, chunkFileSize[dataIndex]);
+							printf("dataIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\t", dataIndex, chunkFileName[dataIndex], chunkFileSize[dataIndex]);
 							dataIndex++;
 						}
 					}

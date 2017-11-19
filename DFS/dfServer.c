@@ -299,6 +299,8 @@ int main (int argc, char **argv)
 						    	writeFile(clientPacket.firstFileName, userDir, clientPacket.firstFile, clientPacket.firstFileSize);
 						    	writeFile(clientPacket.secondFileName, userDir, clientPacket.secondFile, clientPacket.secondFileSize);
 						    	strcpy(clientPacket.message, "Successful\n");
+					    		clientPacket.code = 200;
+					    		//printf("Leaving writing if.\n");
 					    	} else {
 					    		printf("Size of files sent was 0. Please try again.\n");
 					    		strcpy(clientPacket.message, "Size of files sent was 0. Please try again.\n");
@@ -309,7 +311,7 @@ int main (int argc, char **argv)
 				    		strcpy(clientPacket.message, "Directory Failed\n");
 				    		clientPacket.code = 500;
 				    	}
-				    	closedir (dir);
+
 			    	} else if (strcmp(clientPacket.command, "get") == 0) {
 			    		printf("Inside Get Command\n\n");
 			    		int isOne = 0;

@@ -226,7 +226,7 @@ int main (int argc, char **argv)
 				
 				if (recvfrom(connfd, &clientPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, &remote_length) < 0)
 			    {
-			    	printf("%s\n", "Read error");
+			    	printf("%s\n", "Error in Receive From.");
 			    	break;
 			    }
 			    printf("***Received***\n");

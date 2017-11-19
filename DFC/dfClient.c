@@ -177,7 +177,7 @@ long getDecimalValue(char *hex) {
 
 long int getMd5Sum(char *fileName) {
 	FILE *file;
-	char fileBuffer[100 * 1024];
+	char fileBuffer[199 * 1024];
 	file = fopen(fileName, "rb");
 	
 	if(file == NULL)
@@ -190,8 +190,8 @@ long int getMd5Sum(char *fileName) {
     size_t file_size = getFileSize(file); 		//Tells the file size in bytes.
 	fseek(file, 0, SEEK_SET);
 
-	if (file_size > 100 * 1024) {
-		printf("Size of File is bigger than Max limit of this program - 100 * 1024\n");
+	if (file_size > 199 * 1024) {
+		printf("Size of File is bigger than Max limit of this program - 199 * 1024\n");
 		return -1;
 	}
 

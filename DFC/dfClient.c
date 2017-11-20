@@ -22,6 +22,7 @@
 char *key = "vipra";
 static const struct packet EmptyStruct;
 
+// Arrays to tell which chunk to send send to a given server for a perticular md5sum mod. 
 int firstChunkMap[4][4] = {{1,2,3,4}, {4,1,2,3}, {3,4,1,2}, {2,3,4,1}};
 int secondChunkMap[4][4] = {{2,3,4,1}, {1,2,3,4}, {4,1,2,3}, {3,4,1,2}};
 
@@ -44,6 +45,7 @@ struct packet
 	int secondFileSize;
 };
 
+//Function to break the string into ip and port.
 void getIpandPort(char *str, char *ip, char *port) {
 	char *tok = strtok(str, ":");
 	char *temp = strtok(NULL, "\0");
@@ -160,6 +162,7 @@ int getSixteenDigits(int i) {
 	}
 }
 
+//to get the decimanl value from the given hex value.
 long getDecimalValue(char *hex) {
 	long decimal = 0;
 	decimal = getDecimalOfHexChar(hex[(strlen(hex) - 1)]);
@@ -177,6 +180,7 @@ long getDecimalValue(char *hex) {
 	return decimal % 100;
 }
 
+//Calculate the md5 sum of the file and return the last 2 digits of it.
 long int getMd5Sum(char *fileName) {
 	FILE *file;
 	char fileBuffer[199 * 1024];
@@ -228,6 +232,7 @@ long int getMd5Sum(char *fileName) {
 }
 
 
+// Xor bit encryption of the given buffer.
 void getEncryptedData(char *original, char *converted, int size) {
 	int i = 0;
 	int len = strlen(key);
@@ -239,6 +244,15 @@ void getEncryptedData(char *original, char *converted, int size) {
 	converted[i] = '\0';
 }
 
+
+//Write the data into the given filename.
+/*
+fileName - The name of the file where to write.
+additionalFileName - if some extra string has to be added to the file name.
+data - the char buffer containing data.
+size - size of the data in the data array.
+append - if the file has to be open in append or write mode. 0: write   1: append
+*/
 int writeFile(char *fileName, char *additionalFileName, char *data, int size, int append) {
 	FILE *file;
 	char fileNameW[50];
@@ -264,6 +278,7 @@ int writeFile(char *fileName, char *additionalFileName, char *data, int size, in
 }
 
 /*
+Read the file, find the given file chunk, encrypt it and return the size.
 chunkNumber range: 1-4
 
 */
@@ -313,6 +328,7 @@ size_t getFileChunk(char *encryptedData, char *fileName, int chunkNum) {
 	return chunkSize;
 }
 
+//get the chunk name from given filename.
 void getChunkName(char *chunkName, char *fileName, int chunkNum) {
 	char ch[1];
 	sprintf(ch, "%d", chunkNum);
@@ -323,17 +339,17 @@ void getChunkName(char *chunkName, char *fileName, int chunkNum) {
 	strcat(chunkName, ch);
 }
 
+//Decrypt the given data and write it to the file.
 void DecryptDataAndWrite(char *encryptedData, char *fileName, char *additionalFileName, int size, int append) {
 
 	char decryptedData[FILEBUFFERSIZE];
 	bzero(decryptedData, sizeof(decryptedData));
 	
 	getEncryptedData(encryptedData, decryptedData, size);
-	// printf("\nEncrypted: %s\n", encryptedData);
-	// printf("Decrypted: %s\n\n", decryptedData);
 	writeFile(fileName, additionalFileName, decryptedData, size, append);
 }
 
+//Construct a packet with given data.
 void constructPacketToSend(struct packet *pack, char *username, char *password, char *fileName, int chunkNum1, size_t chunkSize1, char *data1, int chunkNum2, size_t chunkSize2, char *data2) {
 
 	char chunkName[100];
@@ -353,24 +369,21 @@ void constructPacketToSend(struct packet *pack, char *username, char *password, 
 	memcpy(pack->secondFile, data2, chunkSize2);
 }
 
+//
 void getSubFileNameFromChunkName(char *chunkName, char *fileName) {
-	//printf("\nInside Substr...chunkName:%s\t%d\t", chunkName, strlen(chunkName));
 	int len = strlen(chunkName);
 	int ll = 1;
 	int fileI = 0;
 	while (ll < (len -2)) {
 		fileName[fileI] = chunkName[ll];
-		//printf("\tchar:%c\t", fileName[fileI]);
 		ll++;
 		fileI++;
 	}
 	fileName[fileI] = '\0';
-	//printf("ll: %d\n", ll);
-	//printf("FileName:%s\n", fileName);
 }
 
 
-
+//get the chunk number to send
 int getChunkToSend(int serverNum, long md5, int itemNum) {
 	int modVal = md5 % 4;
 	if (itemNum == 1) {
@@ -413,10 +426,6 @@ int main (int argc, char **argv)
 	if (fileParsed == 0) {
 		return 0;
 	}
-	// printf("dfs1:%s:\n", dfs1);
-	// printf("dfs2:%s:\n", dfs2);
-	// printf("dfs3:%s:\n", dfs3);
-	// printf("dfs4:%s:\n", dfs4);
 	printf("username:%s:\n", username);
 	printf("password:%s:\n", password);
 	printf("defaultPath:%s:\n\n", defaultPath);
@@ -444,6 +453,7 @@ int main (int argc, char **argv)
 		memset(&servaddr[i], 0, sizeof(servaddr[i]));
 	}
 
+	//Parse the IP and port number out from the line.
 	getIpandPort(dfs1, dfs1Ip, dfs1Port);
 	getIpandPort(dfs2, dfs2Ip, dfs2Port);
 	getIpandPort(dfs3, dfs3Ip, dfs3Port);
@@ -526,19 +536,9 @@ int main (int argc, char **argv)
 						char *tempSubfolder;
 						tempSubfolder = strtok(NULL, "");
 						if (tempSubfolder) {
-							// char tempFileName[50];
-							
 							if (tempSubfolder[strlen(tempSubfolder) - 1] != '/') {
 								tempSubfolder[strlen(tempSubfolder)] = '/';	
 							}
-
-							//subfolder[strlen(subfolder)] = '\0';
-							
-							// strcpy(tempFileName, tempSubfolder);
-							// strcat(tempFileName, fileName);
-							// bzero(fileName, sizeof(fileName));
-
-							// strcpy(fileName, tempFileName);
 							strcpy(subfolder, tempSubfolder);
 						}
 					}
@@ -640,10 +640,7 @@ int main (int argc, char **argv)
 				receivedPacket[serverIndex].code = -1;
 				strcpy(receivedPacket[serverIndex].command, "");
 				
-				//nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
-					
 				while ((receivedPacket[serverIndex].code != 200 || receivedPacket[serverIndex].code != 500) && retry < 5) {
-					//printf("code:%d\tretry:%d\n", receivedPacket[serverIndex].code, retry);
 					
 					nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
 					retry++;

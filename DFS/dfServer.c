@@ -405,6 +405,9 @@ int main (int argc, char **argv)
 			    		} else {
 			    			strcpy(sendPacket.message, "Fail");
 			    			sendPacket.code = 500;
+			    			printf("********************Sending*****************************\n");
+							printf("code:      %d\n", sendPacket.code);
+				 		    printf("message:   %s\n", sendPacket.message);
 			    			nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 							if (nbytes < 0){
 								printf("Error in sendto\n");
@@ -430,6 +433,9 @@ int main (int argc, char **argv)
 					    		printf("Directory Created.\n");
 					    		strcpy(sendPacket.message, "Directory Created");
 					    		sendPacket.code = 200;
+					    		printf("********************Sending*****************************\n");
+								printf("code:      %d\n", sendPacket.code);
+					 		    printf("message:   %s\n", sendPacket.message);
 					    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 								if (nbytes < 0){
 									printf("Error in sendto\n");
@@ -439,6 +445,9 @@ int main (int argc, char **argv)
 					    		printf("Directory failed.\n");
 					    		strcpy(sendPacket.message, "Directory Failed\n");
 					    		sendPacket.code = 500;
+					    		printf("********************Sending*****************************\n");
+								printf("code:      %d\n", sendPacket.code);
+					 		    printf("message:   %s\n", sendPacket.message);
 					    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 								if (nbytes < 0){
 									printf("Error in sendto\n");
@@ -449,21 +458,14 @@ int main (int argc, char **argv)
 					    	printf("Directory failed.\n");
 				    		strcpy(sendPacket.message, "Directory Failed\n");
 				    		sendPacket.code = 500;
+				    		printf("********************Sending*****************************\n");
+							printf("code:      %d\n", sendPacket.code);
+				 		    printf("message:   %s\n", sendPacket.message);
 				    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 							if (nbytes < 0){
 								printf("Error in sendto\n");
 							}
 					    }
-			     	} else if (strcmp(clientPacket.command, "exit") == 0) {
-			     		struct packet sendPacket;
-			     		printf("Exiting, byee....\n");
-			     		strcpy(sendPacket.message, "Exiting, byee....");
-			     		sendPacket.code = 200;
-			     		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
-						if (nbytes < 0){
-							printf("Error in sendto\n");
-						}
-			     		return 0;
 			     	} else if(strcmp(clientPacket.command, "list") == 0) {
 			     		DIR *dir;
 						struct dirent *ent;
@@ -503,6 +505,12 @@ int main (int argc, char **argv)
 						strcpy(sendPacket.firstFile, files);
 						sendPacket.code = 200;
 						strcpy(sendPacket.message, "Successful");
+						printf("********************Sending*****************************\n");
+						printf("code:      %d\n", sendPacket.code);
+			 		    printf("message:   %s\n", sendPacket.message);
+			 		    printf("files:   %s\n", sendPacket.firstFile);
+
+						printf("\n");
 						nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 						
 						if (nbytes < 0){
@@ -514,6 +522,9 @@ int main (int argc, char **argv)
 			    		printf("Invalid command.\n");
 			    		strcpy(sendPacket.message, "Invalid Command\n");
 			    		sendPacket.code = 500;
+			    		printf("********************Sending*****************************\n");
+						printf("code:      %d\n", sendPacket.code);
+			 		    printf("message:   %s\n", sendPacket.message);
 			    		nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 						if (nbytes < 0){
 							printf("Error in sendto\n");
@@ -525,6 +536,9 @@ int main (int argc, char **argv)
 			    	printf("Invalid User/Password. Please try again.\n");
 			    	strcpy(sendPacket.message, "Invalid User/Password. Please try again.\n");
 			    	sendPacket.code = 500;
+			    	printf("********************Sending*****************************\n");
+					printf("code:      %d\n", sendPacket.code);
+		 		    printf("message:   %s\n", sendPacket.message);
 			    	nbytes = sendto(connfd, &sendPacket, sizeof(struct packet), 0, (struct sockaddr *)&cliaddr, remote_length);
 					if (nbytes < 0){
 						printf("Error in sendto\n");

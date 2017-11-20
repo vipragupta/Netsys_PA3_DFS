@@ -33,7 +33,7 @@ struct packet
 	char command[10];	//will contain the command that user entered
 	char message[100];	//If command failed, then this will contain the message from server.
 	int code;			//200:Pass,  500:Fail
-	char subFolder[100];
+	char subfolder[100];
 
 	char firstFileName[50];			//First chunk
 	char firstFile[FILEPACKETSIZE];
@@ -386,6 +386,7 @@ int getChunkToSend(int serverNum, long md5, int itemNum) {
 int main (int argc, char **argv)
 {
 	
+	signal(SIGPIPE, SIG_IGN);
 	char dfs1[20];
 	char dfs2[20];
 	char dfs3[20];
@@ -427,6 +428,7 @@ int main (int argc, char **argv)
 	char sendline[MAXLINE];
 	char recvline[MAXLINE];
 	char *fileName;
+	char subfolder[50];
 
 	//Create a socket for the client
 	//If sockfd<0 there was an error in the creation of the socket
@@ -492,13 +494,15 @@ int main (int argc, char **argv)
 	while (1) {
 		bzero(sendline, sizeof(sendline));
 		printf("\n*********************** MENU ***********************\n");
-		printf(". put [FileName]\n. get [FileName]\n. mkdir [subfolder]\n. list\n. exit\n\n");
+		printf(". put [FileName] [subfolder]\n. get [FileName] [subfolder]\n. mkdir [subfolder]\n. list [subfolder]\n\n");
 		printf("Enter the operation you want to perform: ");
 		
 		if(fgets(sendline, MAXLINE, stdin) == NULL) {
 			printf("Please enter a valid command.\n");
 			continue;
 		}
+		bzero(subfolder, sizeof(subfolder));
+
 
 		char *option;
 		option = strtok(sendline, "\n");
@@ -508,13 +512,41 @@ int main (int argc, char **argv)
 		char *command;
 		command = strtok(option, " ");
 		printf("command: %s\n", command);
+		
 		//Move on only if user has entered something.
 		if (command && command != NULL) {
-			if (strcmp(command, "get") == 0 || strcmp(command, "put") == 0 || strcmp(command, "mkdir") == 0 ) {
-				fileName = strtok(NULL, "");
-				if (!fileName) {
-					printf("No File Name Entered. Please try again.\n");
-					continue;
+			if (strcmp(command, "get") == 0 || strcmp(command, "put") == 0 || strcmp(command, "mkdir") == 0 || strcmp(command, "list") == 0) {
+				fileName = strtok(NULL, " ");
+				printf("FileName:%s\n", fileName);
+				if (fileName) {
+					if (strcmp(command, "list") == 0 || strcmp(command, "mkdir") == 0) {
+						bzero(subfolder, sizeof(subfolder));
+						strcpy(subfolder, fileName);
+					} else {
+						char *tempSubfolder;
+						tempSubfolder = strtok(NULL, "");
+						if (tempSubfolder) {
+							// char tempFileName[50];
+							
+							if (tempSubfolder[strlen(tempSubfolder) - 1] != '/') {
+								tempSubfolder[strlen(tempSubfolder)] = '/';	
+							}
+
+							//subfolder[strlen(subfolder)] = '\0';
+							
+							// strcpy(tempFileName, tempSubfolder);
+							// strcat(tempFileName, fileName);
+							// bzero(fileName, sizeof(fileName));
+
+							// strcpy(fileName, tempFileName);
+							strcpy(subfolder, tempSubfolder);
+						}
+					}
+				} else {
+					if (strcmp(command, "list") != 0) {
+						printf("No File Name Entered. Please try again.\n");
+						continue;
+					}
 				}
 			}
 		} else {
@@ -522,6 +554,7 @@ int main (int argc, char **argv)
 		}
 
 		printf("FileName:%s\n\n", fileName);
+		printf("subfolder:%s\n", subfolder);
 
 		if (strcmp(command, "put") == 0) {
 			char absoluteFile[100];
@@ -558,11 +591,18 @@ int main (int argc, char **argv)
 				continue;
 			}
 
+			struct packet receivedPacket[4];
+
+			for (int g = 0; g < 4; g++) {
+				//receivedPacket[g] = malloc(sizeof(struct packet));
+				struct packet* var = malloc(sizeof(struct packet));
+				receivedPacket[g] = *var;
+			}
 			
 			int nbytes;
 			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
 				struct packet pack;
-				
+				int retry = 0;
 				printf("---------------------Server %d----------------------\n\n", serverIndex);
 				int firstChunkNum = getChunkToSend(serverIndex, md5, 1);
 				int secondChunkNum = getChunkToSend(serverIndex, md5, 2);
@@ -570,9 +610,17 @@ int main (int argc, char **argv)
 				pack = EmptyStruct;
 
 				constructPacketToSend(&pack, username, password, fileName, firstChunkNum + 1, chunkSize[firstChunkNum], something[firstChunkNum], secondChunkNum + 1, chunkSize[secondChunkNum], something[secondChunkNum]);
+				bzero(pack.subfolder, sizeof(pack.subfolder));
+				if (strlen(subfolder) > 0) {
+					strcpy(pack.subfolder, subfolder);
+				} else {
+					strcpy(pack.subfolder, "");
+				}
+				
 				printf("pack.username: %s\n", pack.username);
 				printf("pack.password: %s\n", pack.password);
-				
+				printf("pack.subfolder: %s\n", pack.subfolder);
+
 				printf("pack.firstFileName: %s\n", pack.firstFileName);
 				printf("pack.firstFileSize: %d\n", pack.firstFileSize);
 				
@@ -582,25 +630,35 @@ int main (int argc, char **argv)
 				strcpy(pack.command, "put");
 				pack.command[strlen(pack.command)] = '\0';
 
+				//printf("SOCKET VAL:%d\n", sock[serverIndex]);
 				nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
 				if (nbytes < 0){
 					printf("Error in sendto to server %d.\n", serverIndex);
 				}
 				printf("Waiting for server %d ACK..\n", serverIndex);
 				
-				struct packet receivedPacket;
-
-				struct packet* var = malloc(sizeof(struct packet));
-				receivedPacket = *var;
-
-				receivedPacket.code = -1;
+				receivedPacket[serverIndex].code = -1;
+				strcpy(receivedPacket[serverIndex].command, "");
 				
-				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
-				
+				//nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+					
+				while ((receivedPacket[serverIndex].code != 200 || receivedPacket[serverIndex].code != 500) && retry < 5) {
+					//printf("code:%d\tretry:%d\n", receivedPacket[serverIndex].code, retry);
+					
+					nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+					retry++;
+					if ((receivedPacket[serverIndex].code == 200 || receivedPacket[serverIndex].code == 500) && strcmp(receivedPacket[serverIndex].command, "put") == 0 ) {
+						break;
+					}
+
+				}
+
 				if (nbytes > 0) {
 					printf("Server %d Sent:\n", serverIndex);
-					printf("code:%d\n", receivedPacket.message);
-					fputs(receivedPacket.message, stdout);
+					printf("code:%d\n", receivedPacket[serverIndex].code);
+					printf("command:%s\n", receivedPacket[serverIndex].command);
+
+					fputs(receivedPacket[serverIndex].message, stdout);
 					printf("\n\n");
 					
 				} else {
@@ -630,12 +688,20 @@ int main (int argc, char **argv)
 
 			strcpy(pack.command, "get");
 			pack.command[strlen(pack.command)] = '\0';
+
+			bzero(pack.subfolder, sizeof(pack.subfolder));
+			
+			if (strlen(subfolder) > 0) {
+				strcpy(pack.subfolder, subfolder);
+			} else {
+				strcpy(pack.subfolder, "");
+			}
+
 			bzero(pack.secondFileName, sizeof(pack.secondFileName));
 
 			bzero(pack.firstFile, sizeof(pack.firstFile));
 			pack.firstFileSize = -1;
 			pack.secondFileSize = -1;
-
 
 			printf("pack.username: %s\n", pack.username);
 			printf("pack.password: %s\n", pack.password);
@@ -656,7 +722,7 @@ int main (int argc, char **argv)
 
 			for (int serverIndex = 0; serverIndex < 4; serverIndex++) {
 				int retry = 0;
-
+				//printf("SOCKET VAL:%d\n", sock[serverIndex]);
 				int nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
 				printf("**********************************Server %d Sent***************************************\n", serverIndex);
 				if (nbytes < 0) {
@@ -675,10 +741,11 @@ int main (int argc, char **argv)
 				bzero(receivedPacket[serverIndex].secondFile, sizeof(receivedPacket[serverIndex].secondFile));
 
 				while ((receivedPacket[serverIndex].code != 200 || receivedPacket[serverIndex].code != 500) && retry < 5) {
-					printf("code:%d\tretry:%d\n", receivedPacket[serverIndex].code, retry);
+					
 					nbytes = recvfrom(sock[serverIndex], &receivedPacket[serverIndex], sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
+					//printf("receivedPacket[serverIndex].code:%d\tretry%d\tcommand:%s\n", receivedPacket[serverIndex].code, retry, receivedPacket[serverIndex].command);
 					retry++;
-					if ((receivedPacket[serverIndex].code == 200 || receivedPacket[serverIndex].code == 500)) {
+					if ((receivedPacket[serverIndex].code == 200 || receivedPacket[serverIndex].code == 500) && (strcmp(receivedPacket[serverIndex].command, "get") == 0) ) {
 						break;
 					}
 
@@ -686,7 +753,7 @@ int main (int argc, char **argv)
 
 				if (nbytes > 0) {
 					
-					printf("Size OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
+					printf("\nSize OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
 					printf("Status Code:    %d\n", receivedPacket[serverIndex].code);
 					printf("message:        %s\n\n", receivedPacket[serverIndex].message);
 					printf("nbytes:         %d\n", nbytes);
@@ -742,10 +809,10 @@ int main (int argc, char **argv)
 			}
 
 			int chunkIndex[4] = {-1, -1, -1, -1};
-			printf("\n");
+			printf("\n-------------------------------------------------------------------------------------------");
 			for (int serverIndex = 0; serverIndex < 8; serverIndex++) {
-				printf("serverIndex: %d\tchunkFileName: %s\t chunkFileSize: %d\t", serverIndex, chunkFileName[serverIndex], chunkFileSize[serverIndex]);
-				printf("character: %c\n", chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1]);
+				printf("\nserverIndex: %d\tchunkFileName: %s\t \n", serverIndex, chunkFileName[serverIndex]);
+				//printf("character: %c\n", chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1]);
 				
 				if (chunkFileName[serverIndex][strlen(chunkFileName[serverIndex]) -1] == '1' && chunkIndex[0] == -1) {
 					chunkIndex[0] = serverIndex;
@@ -759,13 +826,14 @@ int main (int argc, char **argv)
 			}
 			int found = 0;
 			for (int z = 0; z < 4; z++) {
-				printf("z: %d chunkIndex: %d\n", z, chunkIndex[z]);
+				//printf("z: %d chunkIndex: %d\n", z, chunkIndex[z]);
 				if (chunkIndex[z] != -1) {
 					found ++;
 				}
 			}
+			printf("\n-------------------------------------------------------------------------------------------\n");
 			if (found == 4) {
-				printf("Found all 4 chunks.\n");
+				printf("\nFound all 4 chunks.\n");
 				char absoluteFile[100];
 			    bzero(absoluteFile, sizeof(absoluteFile));
 			    strcpy(absoluteFile, defaultPath);
@@ -775,6 +843,7 @@ int main (int argc, char **argv)
 				DecryptDataAndWrite(chunkFileData[chunkIndex[1]], absoluteFile, "_Final", chunkFileSize[chunkIndex[1]], 1);
 				DecryptDataAndWrite(chunkFileData[chunkIndex[2]], absoluteFile, "_Final", chunkFileSize[chunkIndex[2]], 1);
 				DecryptDataAndWrite(chunkFileData[chunkIndex[3]], absoluteFile, "_Final", chunkFileSize[chunkIndex[3]], 1);
+				printf("File Write Complete.\n");
 			} else {
 				printf("File is INCOMPLETE.\n");
 			}
@@ -807,10 +876,10 @@ int main (int argc, char **argv)
 				
 				struct packet receivedPacket;
 				nbytes = recvfrom(sock[serverIndex], &receivedPacket, sizeof(receivedPacket), 0, (struct sockaddr *)&servaddr[serverIndex], &serverLength[serverIndex]);  
-				printf("Size OF Packet: %lu\n", sizeof(receivedPacket));
-				printf("Status Code:    %d\n", receivedPacket.code);
-				printf("message:        %s\n", receivedPacket.message);
-				printf("nbytes:         %d\n", nbytes);
+				//printf("Size OF Packet: %lu\n", sizeof(receivedPacket));
+				//printf("Status Code:    %d\n", receivedPacket.code);
+				//printf("message:        %s\n", receivedPacket.message);
+				
 				if (nbytes < 0) {
 					printf("mkdir Failed for Server %d . Please try again later.\n", serverIndex);
 				}
@@ -825,9 +894,19 @@ int main (int argc, char **argv)
 
 			strcpy(pack.command, "list");
 			pack.command[strlen(pack.command)] = '\0';
-			
+			bzero(pack.firstFileName, sizeof(pack.firstFileName));
+
+			if (fileName && strlen(fileName) > 0) {
+				strcpy(pack.firstFileName, fileName);
+			} else {
+				strcpy(pack.firstFileName, "");
+			}
+
 			printf("pack.username: %s\n", pack.username);
 			printf("pack.password: %s\n", pack.password);
+			printf("pack.command: %s\n", pack.command);
+			printf("pack.firstFileName: %s\n", pack.firstFileName);
+
 			int nbytes = 0;
 			
 			char fileChunkName[50];
@@ -849,16 +928,7 @@ int main (int argc, char **argv)
 
 				printf("*****************Server %d*********************\n", serverIndex);
 				nbytes = sendto(sock[serverIndex], &pack, sizeof(struct packet), 0, (struct sockaddr *)&servaddr[serverIndex], sizeof(servaddr[serverIndex]));
-				//printf("Doing bzero\n");
-				//bzero(*receivedPacket[serverIndex], sizeof(*receivedPacket[serverIndex]));
-				//bzero(receivedPacket[serverIndex].secondFile, sizeof(receivedPacket[serverIndex].secondFile));
 				receivedPacket[serverIndex].code = -1;
-
-				printf(":::::Before Receiving::::::%s\n");
-				printf("Status Code:    %d\n", receivedPacket[serverIndex].code);
-				printf("message:        %s\n", receivedPacket[serverIndex].message);
-				printf("Files:          %s\n", receivedPacket[serverIndex].firstFile);
-
 
 				while ((receivedPacket[serverIndex].code != 200 || receivedPacket[serverIndex].code != 500) && retry < 5) {
 					printf("code:%d\tretry:%d\n", receivedPacket[serverIndex].code, retry);
@@ -870,10 +940,8 @@ int main (int argc, char **argv)
 				}
 
 				if (nbytes > 0) {
-					printf("Size OF Packet: %lu\n", sizeof(receivedPacket[serverIndex]));
 					printf("Status Code:    %d\n", receivedPacket[serverIndex].code);
 					printf("message:        %s\n", receivedPacket[serverIndex].message);
-					printf("nbytes:         %d\n", nbytes);
 					printf("Files:          %s\n", receivedPacket[serverIndex].firstFile);
 
 					strcat(files, receivedPacket[serverIndex].firstFile);
@@ -884,7 +952,6 @@ int main (int argc, char **argv)
 			}
 
 			printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-			//printf("Files: %s\n", files);
 			char temp[500];
 			bzero(temp, sizeof(temp));
 			strcpy(temp, files);
@@ -896,15 +963,8 @@ int main (int argc, char **argv)
 			while(token != NULL ) 
 		    {
 		    	numOfTokens++;
-		    	//printf("%s  ", token);
 		      	token = strtok(NULL, "#");
-
-		      	// if (numOfTokens % 10 == 0) {
-		      	// 	printf("\n");
-		      	// }
 		    }
-
-		   // printf("\nnumOfTokens:%d\n", numOfTokens);
 
  			char *listOfFileNames[numOfTokens];
 			char *finalFileNames[numOfTokens];
@@ -915,7 +975,6 @@ int main (int argc, char **argv)
 			}
 
 		    strcpy(temp, files);
-		    //printf("\n\nFiles: %s\n", temp);
 		    token = strtok((char *) temp, "#");
 		    int tokenIndex = 0;
 			while(token != NULL ) 
@@ -925,20 +984,9 @@ int main (int argc, char **argv)
 		      	token = strtok(NULL, "#");
 		    }
 
-		 //    printf("\nUnsorted:::\n");
-		 //    //Print the file Names found.
-			// for (int i = 0; i < numOfTokens; i++) {
-			// 	printf("%s  \t", listOfFileNames[i]);
-			// 	if (i % 8 == 0) {
-			// 		printf("\n");
-			// 	}				
-			// }
-
-			
 		    //Sorting the file names.
 			for (int i = 0; i < numOfTokens; i++) {
 				for (int j = i+1; j < numOfTokens; j++) {
-					//printf("iVal:%s\tjVal:%s\tcomp:%d\n", listOfFileNames[i], listOfFileNames[j], strcmp(listOfFileNames[i], listOfFileNames[j]));
 					if (strcmp(listOfFileNames[i], listOfFileNames[j]) > 0) {
 						char temp[100];
 						bzero(temp, sizeof(temp));
@@ -947,79 +995,92 @@ int main (int argc, char **argv)
 						strcpy(listOfFileNames[i], listOfFileNames[j]);
 						strcpy(listOfFileNames[j], temp);
 					}
-					//printf("Later: iVal:%s\tjVal:%s\n\n", listOfFileNames[i], listOfFileNames[j]);
 				}
 			}
 
-			// printf("\nSorted::::\n");
-			// //Print the file Names found.
-			// for (int i = 0; i < numOfTokens; i++) {
-			// 	printf("%s  \t", listOfFileNames[i]);
-			// 	if (i % 8 == 0) {
-			// 		printf("\n");
-			// 	}				
-			// }
-
 			int fileIndex = 0;
+
+			for (int y=0; y < numOfTokens; y++) {
+				//printf("\n%s\t%c\t", listOfFileNames[y], listOfFileNames[y][strlen(listOfFileNames[y]) - 2]);
+
+				if (listOfFileNames[y][strlen(listOfFileNames[y]) - 2] != '.') {
+					int present = 0;
+					for (int f = 0; f < fileIndex; f++) {
+						if (strcmp(finalFileNames[f], listOfFileNames[y]) == 0) {
+							present = 1;
+							break;
+						}
+					}
+					if (present == 0) {
+						//printf("Not Present\n");
+						strcpy(finalFileNames[fileIndex++], listOfFileNames[y]);
+					}
+				}
+			}
+
+			for (int u = 0; u < fileIndex; u++) {
+				char tempListFile[50];
+				bzero(tempListFile, sizeof(tempListFile));
+				strcpy(tempListFile, finalFileNames[u]);
+				strcat(tempListFile, "/");
+				bzero(finalFileNames[u], sizeof(finalFileNames[u]));
+				strcpy(finalFileNames[u], tempListFile);
+			}
+			
 			int i = 0;
 
 			while (i < numOfTokens) {
-				char fileConsidered[20];
-				bzero(fileConsidered, sizeof(fileConsidered));
-				
-				getSubFileNameFromChunkName(listOfFileNames[i], fileConsidered);
+				if (listOfFileNames[i][0] == '.') {
+					char fileConsidered[20];
+					bzero(fileConsidered, sizeof(fileConsidered));
+					
+					getSubFileNameFromChunkName(listOfFileNames[i], fileConsidered);
 
-				//printf("\nConsidered: %s\tsubstr:%s\n", listOfFileNames[i], fileConsidered);
-				
-				int found[4] = {-1, -1, -1, -1};
-				int chunksFound = 0;
-				printf("\n");
+					int found[4] = {-1, -1, -1, -1};
+					int chunksFound = 0;
 
-				while (i < numOfTokens) {
-					char tempFile[20];
-					bzero(tempFile, sizeof(tempFile));
-					getSubFileNameFromChunkName(listOfFileNames[i], tempFile);
+					while (i < numOfTokens) {
+						char tempFile[20];
+						bzero(tempFile, sizeof(tempFile));
+						if (listOfFileNames[i][0] == '.') {
+							getSubFileNameFromChunkName(listOfFileNames[i], tempFile);
 
-					// printf("i:%d\tfullname:%s\tfileName:%s\t", i, listOfFileNames[i], tempFile);
+							if ((i < numOfTokens) && (strcmp(fileConsidered, tempFile) == 0)) {
 
-					if ((i < numOfTokens) && (strcmp(fileConsidered, tempFile) == 0)) {
-
-						// printf("\t char:%c\tcond1:%d\t\t",  listOfFileNames[i][strlen(listOfFileNames[i]) -1], listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '1');
-						// printf("cond2:%d\t\tcond3:%d\t\tcond4:%d\t", listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '2', listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '3', listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '4');
-						// printf("\t0:%d\t 1:%d\t 2:%d\t 3:%d\t", found[0], found[1], found[2], found[3]);
-
-						if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '1'  && found[0] == -1) {
-							found[0] = 1;
-							chunksFound++;
-						} else if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '2'  && found[1] == -1) {
-							found[1] = 1;
-							chunksFound++;
-						} else if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '3'  && found[2] == -1) {
-							found[2] = 1;
-							chunksFound++;
-						} else if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '4'  && found[3] == -1) {
-							found[3] = 1;
-							chunksFound++;
+								if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '1'  && found[0] == -1) {
+									found[0] = 1;
+									chunksFound++;
+								} else if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '2'  && found[1] == -1) {
+									found[1] = 1;
+									chunksFound++;
+								} else if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '3'  && found[2] == -1) {
+									found[2] = 1;
+									chunksFound++;
+								} else if (listOfFileNames[i][strlen(listOfFileNames[i]) - 1] == '4'  && found[3] == -1) {
+									found[3] = 1;
+									chunksFound++;
+								}
+							} else {
+								break;
+							}
+							i++;
+						} else {
+							i++;
 						}
-						//printf("chunksFound: %d\n", chunksFound);
-					} else {
-						break;
 					}
+					if (chunksFound == 4) {
+						strcpy(finalFileNames[fileIndex++], fileConsidered);
+					} else {
+						strcpy(finalFileNames[fileIndex], fileConsidered);
+						strcat(finalFileNames[fileIndex], " ");
+						strcat(finalFileNames[fileIndex], "[INCOMPLETE]");
+						fileIndex++;
+					}
+				} else {
 					i++;
 				}
-				if (chunksFound == 4) {
-				//	printf("\nFound all 4 chunks for file: %s\n", fileConsidered);
-					strcpy(finalFileNames[fileIndex++], fileConsidered);
-				} else {
-				//	printf("\nDIDN't all 4 chunks for file: %s\n", fileConsidered);
-					strcpy(finalFileNames[fileIndex], fileConsidered);
-					strcat(finalFileNames[fileIndex], " ");
-					strcat(finalFileNames[fileIndex], "[INCOMPLETE]");
-					fileIndex++;
-				}
-				//printf("finalFileNames:%s\n", finalFileNames[fileIndex-1]);
 			}
-
+			printf("\n");
 			for (int z = 0; z< fileIndex; z++) {
 				printf("%s\n", finalFileNames[z]);
 			}
